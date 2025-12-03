@@ -11,6 +11,8 @@ public static class NumUtil
     /// <summary>
     ///     去除科学计数法，返回普通字符串表示
     /// </summary>
+    /// <param name="number">双精度浮点数</param>
+    /// <returns>普通表示法的数字字符串</returns>
     public static string GetPlainString(double number)
     {
         if (double.IsNaN(number) || double.IsInfinity(number))
@@ -34,6 +36,8 @@ public static class NumUtil
     /// <summary>
     ///     去除科学计数法，返回普通字符串表示
     /// </summary>
+    /// <param name="number">Decimal 数</param>
+    /// <returns>普通表示法的数字字符串</returns>
     public static string GetPlainString(decimal number)
     {
         return number.ToString(CultureInfo.InvariantCulture);
@@ -42,6 +46,9 @@ public static class NumUtil
     /// <summary>
     ///     四舍五入
     /// </summary>
+    /// <param name="value">待舍入的值</param>
+    /// <param name="decimals">保留的小数位数</param>
+    /// <returns>舍入后的值</returns>
     public static double Round(double value, int decimals)
     {
         return Math.Round(value, decimals, MidpointRounding.AwayFromZero);
@@ -50,6 +57,9 @@ public static class NumUtil
     /// <summary>
     ///     格式化数字，保留指定小数位数
     /// </summary>
+    /// <param name="value">数值</param>
+    /// <param name="decimals">小数位数</param>
+    /// <returns>格式化后的字符串</returns>
     public static string FormatNumber(double value, int decimals)
     {
         return value.ToString("F" + decimals, CultureInfo.InvariantCulture);

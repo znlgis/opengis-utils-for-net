@@ -19,6 +19,15 @@ public static class EncodingUtil
     /// <summary>
     ///     检测文件编码
     /// </summary>
+    /// <param name="filePath">文件路径</param>
+    /// <returns>检测到的编码</returns>
+    /// <exception cref="FileNotFoundException">当文件不存在时抛出</exception>
+    /// <example>
+    /// <code>
+    /// var encoding = EncodingUtil.GetFileEncoding("data.txt");
+    /// var content = File.ReadAllText("data.txt", encoding);
+    /// </code>
+    /// </example>
     public static Encoding GetFileEncoding(string filePath)
     {
         if (!File.Exists(filePath))
@@ -33,6 +42,10 @@ public static class EncodingUtil
     /// <summary>
     ///     检测流编码
     /// </summary>
+    /// <param name="stream">输入流</param>
+    /// <returns>检测到的编码</returns>
+    /// <exception cref="ArgumentNullException">当流为 null 时抛出</exception>
+    /// <remarks>此方法会重置流的位置到开头</remarks>
     public static Encoding GetFileEncoding(Stream stream)
     {
         if (stream == null)
@@ -48,6 +61,9 @@ public static class EncodingUtil
     /// <summary>
     ///     检测字节数组编码
     /// </summary>
+    /// <param name="buffer">字节数组</param>
+    /// <returns>检测到的编码，默认返回 UTF-8</returns>
+    /// <remarks>支持检测 UTF-8、UTF-16 LE/BE、GBK/GB2312 等编码</remarks>
     public static Encoding DetectEncoding(byte[] buffer)
     {
         if (buffer == null || buffer.Length == 0)
@@ -81,6 +97,9 @@ public static class EncodingUtil
     /// <summary>
     ///     转换文件编码
     /// </summary>
+    /// <param name="filePath">文件路径</param>
+    /// <param name="targetEncoding">目标编码</param>
+    /// <exception cref="FileNotFoundException">当文件不存在时抛出</exception>
     public static void ConvertFileEncoding(string filePath, Encoding targetEncoding)
     {
         if (!File.Exists(filePath))

@@ -22,16 +22,20 @@ public abstract class GisEngine
     /// <summary>
     ///     创建读取器
     /// </summary>
+    /// <returns>图层读取器实例</returns>
     public abstract ILayerReader CreateReader();
 
     /// <summary>
     ///     创建写入器
     /// </summary>
+    /// <returns>图层写入器实例</returns>
     public abstract ILayerWriter CreateWriter();
 
     /// <summary>
     ///     检查是否支持指定格式
     /// </summary>
+    /// <param name="format">数据格式类型</param>
+    /// <returns>如果支持该格式返回 true，否则返回 false</returns>
     public virtual bool SupportsFormat(DataFormatType format)
     {
         return SupportedFormats.Contains(format);

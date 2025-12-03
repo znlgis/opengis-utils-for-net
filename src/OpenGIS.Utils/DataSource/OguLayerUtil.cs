@@ -15,6 +15,15 @@ public static class OguLayerUtil
     /// <summary>
     ///     读取图层
     /// </summary>
+    /// <param name="format">数据格式类型</param>
+    /// <param name="path">数据源路径</param>
+    /// <param name="layerName">图层名称，如果为 null 则读取第一个图层</param>
+    /// <param name="attributeFilter">属性过滤条件（SQL WHERE 子句）</param>
+    /// <param name="spatialFilterWkt">空间过滤几何（WKT格式）</param>
+    /// <param name="engineType">指定使用的引擎类型，如果为 null 则自动选择</param>
+    /// <param name="options">附加选项</param>
+    /// <returns>图层对象</returns>
+    /// <exception cref="ArgumentException">当路径为空时抛出</exception>
     public static OguLayer ReadLayer(
         DataFormatType format,
         string path,
@@ -40,6 +49,14 @@ public static class OguLayerUtil
     /// <summary>
     ///     异步读取图层
     /// </summary>
+    /// <param name="format">数据格式类型</param>
+    /// <param name="path">数据源路径</param>
+    /// <param name="layerName">图层名称，如果为 null 则读取第一个图层</param>
+    /// <param name="attributeFilter">属性过滤条件（SQL WHERE 子句）</param>
+    /// <param name="spatialFilterWkt">空间过滤几何（WKT格式）</param>
+    /// <param name="engineType">指定使用的引擎类型，如果为 null 则自动选择</param>
+    /// <param name="options">附加选项</param>
+    /// <returns>包含图层对象的任务</returns>
     public static Task<OguLayer> ReadLayerAsync(
         DataFormatType format,
         string path,
@@ -56,6 +73,14 @@ public static class OguLayerUtil
     /// <summary>
     ///     写入图层
     /// </summary>
+    /// <param name="format">数据格式类型</param>
+    /// <param name="layer">图层对象</param>
+    /// <param name="path">输出路径</param>
+    /// <param name="layerName">图层名称</param>
+    /// <param name="engineType">指定使用的引擎类型，如果为 null 则自动选择</param>
+    /// <param name="options">附加选项</param>
+    /// <exception cref="ArgumentNullException">当图层为 null 时抛出</exception>
+    /// <exception cref="ArgumentException">当路径为空时抛出</exception>
     public static void WriteLayer(
         DataFormatType format,
         OguLayer layer,
@@ -82,6 +107,13 @@ public static class OguLayerUtil
     /// <summary>
     ///     异步写入图层
     /// </summary>
+    /// <param name="format">数据格式类型</param>
+    /// <param name="layer">图层对象</param>
+    /// <param name="path">输出路径</param>
+    /// <param name="layerName">图层名称</param>
+    /// <param name="engineType">指定使用的引擎类型，如果为 null 则自动选择</param>
+    /// <param name="options">附加选项</param>
+    /// <returns>表示异步操作的任务</returns>
     public static Task WriteLayerAsync(
         DataFormatType format,
         OguLayer layer,
@@ -96,6 +128,10 @@ public static class OguLayerUtil
     /// <summary>
     ///     获取图层名称列表
     /// </summary>
+    /// <param name="format">数据格式类型</param>
+    /// <param name="path">数据源路径</param>
+    /// <returns>图层名称列表</returns>
+    /// <exception cref="ArgumentException">当路径为空时抛出</exception>
     public static IList<string> GetLayerNames(DataFormatType format, string path)
     {
         if (string.IsNullOrWhiteSpace(path))

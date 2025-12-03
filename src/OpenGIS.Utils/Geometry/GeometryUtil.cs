@@ -26,6 +26,15 @@ public static class GeometryUtil
     /// <summary>
     ///     WKT 转 Geometry
     /// </summary>
+    /// <param name="wkt">WKT 格式的几何字符串</param>
+    /// <returns>OGR 几何对象</returns>
+    /// <exception cref="ArgumentException">当 WKT 为空或格式无效时抛出</exception>
+    /// <example>
+    /// <code>
+    /// var wkt = "POINT (116.404 39.915)";
+    /// var geom = GeometryUtil.Wkt2Geometry(wkt);
+    /// </code>
+    /// </example>
     public static OgrGeometry Wkt2Geometry(string wkt)
     {
         if (string.IsNullOrWhiteSpace(wkt))
@@ -41,6 +50,9 @@ public static class GeometryUtil
     /// <summary>
     ///     Geometry 转 WKT
     /// </summary>
+    /// <param name="geom">OGR 几何对象</param>
+    /// <returns>WKT 格式的几何字符串</returns>
+    /// <exception cref="ArgumentNullException">当几何对象为 null 时抛出</exception>
     public static string Geometry2Wkt(OgrGeometry geom)
     {
         if (geom == null)
@@ -53,6 +65,10 @@ public static class GeometryUtil
     /// <summary>
     ///     GeoJSON 转 Geometry
     /// </summary>
+    /// <param name="geojson">GeoJSON 格式的几何字符串</param>
+    /// <returns>OGR 几何对象</returns>
+    /// <exception cref="ArgumentException">当 GeoJSON 为空时抛出</exception>
+    /// <exception cref="NotSupportedException">GDAL/OGR 不支持直接解析 GeoJSON 字符串，此方法总是抛出此异常</exception>
     /// <remarks>
     ///     GDAL/OGR doesn't support direct GeoJSON string parsing.
     ///     This is a breaking change from the NetTopologySuite implementation.
@@ -75,6 +91,9 @@ public static class GeometryUtil
     /// <summary>
     ///     Geometry 转 GeoJSON
     /// </summary>
+    /// <param name="geom">OGR 几何对象</param>
+    /// <returns>GeoJSON 格式的几何字符串</returns>
+    /// <exception cref="ArgumentNullException">当几何对象为 null 时抛出</exception>
     public static string Geometry2Geojson(OgrGeometry geom)
     {
         if (geom == null)
@@ -86,6 +105,8 @@ public static class GeometryUtil
     /// <summary>
     ///     WKT 转 GeoJSON
     /// </summary>
+    /// <param name="wkt">WKT 格式的几何字符串</param>
+    /// <returns>GeoJSON 格式的几何字符串</returns>
     public static string Wkt2Geojson(string wkt)
     {
         var geom = Wkt2Geometry(wkt);
@@ -95,6 +116,9 @@ public static class GeometryUtil
     /// <summary>
     ///     GeoJSON 转 WKT
     /// </summary>
+    /// <param name="geojson">GeoJSON 格式的几何字符串</param>
+    /// <returns>WKT 格式的几何字符串</returns>
+    /// <exception cref="NotSupportedException">GDAL/OGR 不支持直接解析 GeoJSON 字符串</exception>
     public static string Geojson2Wkt(string geojson)
     {
         var geom = Geojson2Geometry(geojson);
@@ -108,6 +132,9 @@ public static class GeometryUtil
     /// <summary>
     ///     判断两个几何对象是否相交
     /// </summary>
+    /// <param name="a">第一个几何对象</param>
+    /// <param name="b">第二个几何对象</param>
+    /// <returns>如果相交返回 true，否则返回 false</returns>
     public static bool Intersects(OgrGeometry a, OgrGeometry b)
     {
         if (a == null || b == null) return false;
@@ -117,6 +144,9 @@ public static class GeometryUtil
     /// <summary>
     ///     判断 a 是否包含 b
     /// </summary>
+    /// <param name="a">第一个几何对象</param>
+    /// <param name="b">第二个几何对象</param>
+    /// <returns>如果 a 包含 b 返回 true，否则返回 false</returns>
     public static bool Contains(OgrGeometry a, OgrGeometry b)
     {
         if (a == null || b == null) return false;
@@ -126,6 +156,9 @@ public static class GeometryUtil
     /// <summary>
     ///     判断 a 是否在 b 内部
     /// </summary>
+    /// <param name="a">第一个几何对象</param>
+    /// <param name="b">第二个几何对象</param>
+    /// <returns>如果 a 在 b 内部返回 true，否则返回 false</returns>
     public static bool Within(OgrGeometry a, OgrGeometry b)
     {
         if (a == null || b == null) return false;
@@ -175,6 +208,19 @@ public static class GeometryUtil
     /// <summary>
     ///     缓冲区分析
     /// </summary>
+    /// <param name="geom">输入几何对象</param>
+    /// <param name="distance">缓冲距离（单位与坐标系一致）</param>
+    /// <returns>缓冲后的几何对象</returns>
+    /// <exception cref="ArgumentNullException">当几何对象为 null 时抛出</exception>
+    /// <example>
+    /// <code>
+    /// var wkt = "POINT (0 0)";
+    /// var geom = GeometryUtil.Wkt2Geometry(wkt);
+    /// var buffered = GeometryUtil.Buffer(geom, 10.0);
+    /// // 或者直接使用 WKT 方法
+    /// var bufferedWkt = GeometryUtil.BufferWkt(wkt, 10.0);
+    /// </code>
+    /// </example>
     public static OgrGeometry Buffer(OgrGeometry geom, double distance)
     {
         if (geom == null)
@@ -186,6 +232,10 @@ public static class GeometryUtil
     /// <summary>
     ///     交集
     /// </summary>
+    /// <param name="a">第一个几何对象</param>
+    /// <param name="b">第二个几何对象</param>
+    /// <returns>两个几何对象的交集</returns>
+    /// <exception cref="ArgumentNullException">当任一几何对象为 null 时抛出</exception>
     public static OgrGeometry Intersection(OgrGeometry a, OgrGeometry b)
     {
         if (a == null || b == null)
@@ -197,6 +247,10 @@ public static class GeometryUtil
     /// <summary>
     ///     并集
     /// </summary>
+    /// <param name="a">第一个几何对象</param>
+    /// <param name="b">第二个几何对象</param>
+    /// <returns>两个几何对象的并集</returns>
+    /// <exception cref="ArgumentNullException">当任一几何对象为 null 时抛出</exception>
     public static OgrGeometry Union(OgrGeometry a, OgrGeometry b)
     {
         if (a == null || b == null)
@@ -208,6 +262,10 @@ public static class GeometryUtil
     /// <summary>
     ///     多个几何对象合并
     /// </summary>
+    /// <param name="geometries">几何对象集合</param>
+    /// <returns>合并后的几何对象</returns>
+    /// <exception cref="ArgumentNullException">当几何对象集合为 null 时抛出</exception>
+    /// <exception cref="ArgumentException">当几何对象集合为空时抛出</exception>
     public static OgrGeometry Union(IEnumerable<OgrGeometry> geometries)
     {
         if (geometries == null)
@@ -232,6 +290,10 @@ public static class GeometryUtil
     /// <summary>
     ///     差集
     /// </summary>
+    /// <param name="a">第一个几何对象</param>
+    /// <param name="b">第二个几何对象</param>
+    /// <returns>a 与 b 的差集（a 中不属于 b 的部分）</returns>
+    /// <exception cref="ArgumentNullException">当任一几何对象为 null 时抛出</exception>
     public static OgrGeometry Difference(OgrGeometry a, OgrGeometry b)
     {
         if (a == null || b == null)
@@ -243,6 +305,10 @@ public static class GeometryUtil
     /// <summary>
     ///     对称差集
     /// </summary>
+    /// <param name="a">第一个几何对象</param>
+    /// <param name="b">第二个几何对象</param>
+    /// <returns>a 和 b 的对称差集（两者不重叠的部分）</returns>
+    /// <exception cref="ArgumentNullException">当任一几何对象为 null 时抛出</exception>
     public static OgrGeometry SymDifference(OgrGeometry a, OgrGeometry b)
     {
         if (a == null || b == null)
@@ -258,6 +324,9 @@ public static class GeometryUtil
     /// <summary>
     ///     计算面积
     /// </summary>
+    /// <param name="geom">几何对象</param>
+    /// <returns>面积值（单位与坐标系一致）</returns>
+    /// <exception cref="ArgumentNullException">当几何对象为 null 时抛出</exception>
     public static double Area(OgrGeometry geom)
     {
         if (geom == null)
@@ -269,6 +338,9 @@ public static class GeometryUtil
     /// <summary>
     ///     计算长度
     /// </summary>
+    /// <param name="geom">几何对象</param>
+    /// <returns>长度值（单位与坐标系一致）</returns>
+    /// <exception cref="ArgumentNullException">当几何对象为 null 时抛出</exception>
     public static double Length(OgrGeometry geom)
     {
         if (geom == null)
@@ -280,6 +352,9 @@ public static class GeometryUtil
     /// <summary>
     ///     获取质心
     /// </summary>
+    /// <param name="geom">几何对象</param>
+    /// <returns>质心点</returns>
+    /// <exception cref="ArgumentNullException">当几何对象为 null 时抛出</exception>
     public static OgrGeometry Centroid(OgrGeometry geom)
     {
         if (geom == null)
@@ -415,6 +490,11 @@ public static class GeometryUtil
     /// <summary>
     ///     简化几何
     /// </summary>
+    /// <param name="geom">几何对象</param>
+    /// <param name="tolerance">简化容差</param>
+    /// <returns>简化后的几何对象</returns>
+    /// <exception cref="ArgumentNullException">当几何对象为 null 时抛出</exception>
+    /// <remarks>使用 Douglas-Peucker 算法进行简化</remarks>
     public static OgrGeometry Simplify(OgrGeometry geom, double tolerance)
     {
         if (geom == null)

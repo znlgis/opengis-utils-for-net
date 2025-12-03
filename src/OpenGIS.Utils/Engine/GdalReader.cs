@@ -24,6 +24,14 @@ public class GdalReader : ILayerReader
     /// <summary>
     ///     读取图层
     /// </summary>
+    /// <param name="path">数据源路径</param>
+    /// <param name="layerName">图层名称，如果为 null 则读取第一个图层</param>
+    /// <param name="attributeFilter">属性过滤条件（SQL WHERE 子句）</param>
+    /// <param name="spatialFilterWkt">空间过滤几何（WKT格式）</param>
+    /// <param name="options">附加选项</param>
+    /// <returns>图层对象</returns>
+    /// <exception cref="ArgumentException">当路径为空时抛出</exception>
+    /// <exception cref="SysException">当无法打开数据源或找不到图层时抛出</exception>
     public OguLayer Read(string path, string? layerName = null, string? attributeFilter = null,
         string? spatialFilterWkt = null, Dictionary<string, object>? options = null)
     {
@@ -64,6 +72,9 @@ public class GdalReader : ILayerReader
     /// <summary>
     ///     获取图层名称列表
     /// </summary>
+    /// <param name="path">数据源路径</param>
+    /// <returns>图层名称列表</returns>
+    /// <exception cref="ArgumentException">当路径为空时抛出</exception>
     public IList<string> GetLayerNames(string path)
     {
         if (string.IsNullOrWhiteSpace(path))

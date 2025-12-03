@@ -40,6 +40,7 @@ public class OguCoordinate
     /// <summary>
     ///     转为 WKT POINT
     /// </summary>
+    /// <returns>WKT 格式的点字符串</returns>
     public string ToWkt()
     {
         if (Z.HasValue) return $"POINT Z ({X} {Y} {Z.Value})";
@@ -49,6 +50,9 @@ public class OguCoordinate
     /// <summary>
     ///     从 WKT 解析
     /// </summary>
+    /// <param name="wkt">WKT 格式的点字符串</param>
+    /// <returns>坐标对象</returns>
+    /// <exception cref="ArgumentException">当 WKT 为空、格式无效或不是 POINT 类型时抛出</exception>
     public static OguCoordinate FromWkt(string wkt)
     {
         if (string.IsNullOrWhiteSpace(wkt))

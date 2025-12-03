@@ -18,6 +18,10 @@ public static class ShpUtil
     /// <summary>
     ///     读取 Shapefile
     /// </summary>
+    /// <param name="shpPath">Shapefile 路径（.shp 文件）</param>
+    /// <param name="encoding">字符编码，如果为 null 则自动检测</param>
+    /// <returns>图层对象</returns>
+    /// <exception cref="FileNotFoundException">当 Shapefile 不存在时抛出</exception>
     public static OguLayer ReadShapefile(string shpPath, Encoding? encoding = null)
     {
         if (!File.Exists(shpPath))
@@ -32,6 +36,11 @@ public static class ShpUtil
     /// <summary>
     ///     写入 Shapefile
     /// </summary>
+    /// <param name="layer">图层对象</param>
+    /// <param name="shpPath">输出的 Shapefile 路径（.shp 文件）</param>
+    /// <param name="encoding">字符编码，如果为 null 则使用 UTF-8</param>
+    /// <exception cref="ArgumentNullException">当图层为 null 时抛出</exception>
+    /// <exception cref="ArgumentException">当路径为空时抛出</exception>
     public static void WriteShapefile(OguLayer layer, string shpPath, Encoding? encoding = null)
     {
         if (layer == null)
@@ -48,6 +57,10 @@ public static class ShpUtil
     /// <summary>
     ///     获取 Shapefile 编码
     /// </summary>
+    /// <param name="shpPath">Shapefile 路径</param>
+    /// <returns>检测到的编码</returns>
+    /// <exception cref="FileNotFoundException">当 Shapefile 不存在时抛出</exception>
+    /// <remarks>优先从 .cpg 文件读取编码，如果不存在则从 .dbf 文件检测</remarks>
     public static Encoding GetShapefileEncoding(string shpPath)
     {
         if (!File.Exists(shpPath))
@@ -77,6 +90,11 @@ public static class ShpUtil
     /// <summary>
     ///     创建 CPG 文件
     /// </summary>
+    /// <param name="shpPath">Shapefile 路径</param>
+    /// <param name="encoding">字符编码</param>
+    /// <exception cref="ArgumentException">当路径为空时抛出</exception>
+    /// <exception cref="ArgumentNullException">当编码为 null 时抛出</exception>
+    /// <remarks>CPG 文件用于指定 Shapefile 的字符编码</remarks>
     public static void CreateCpgFile(string shpPath, Encoding encoding)
     {
         if (string.IsNullOrWhiteSpace(shpPath))
@@ -96,6 +114,9 @@ public static class ShpUtil
     /// <summary>
     ///     获取 Shapefile 边界
     /// </summary>
+    /// <param name="shpPath">Shapefile 路径</param>
+    /// <returns>边界矩形，如果无法获取则返回 null</returns>
+    /// <exception cref="FileNotFoundException">当 Shapefile 不存在时抛出</exception>
     public static Envelope? GetShapefileBounds(string shpPath)
     {
         if (!File.Exists(shpPath))
@@ -128,6 +149,9 @@ public static class ShpUtil
     /// <summary>
     ///     修复 Shapefile
     /// </summary>
+    /// <param name="shpPath">Shapefile 路径</param>
+    /// <exception cref="FileNotFoundException">当 Shapefile 不存在时抛出</exception>
+    /// <remarks>通过读取并重新写入 Shapefile 来修复一些常见问题</remarks>
     public static void RepairShapefile(string shpPath)
     {
         if (!File.Exists(shpPath))

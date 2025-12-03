@@ -16,6 +16,10 @@ public static class SortUtil
     /// <summary>
     ///     自然排序比较字符串
     /// </summary>
+    /// <param name="a">第一个字符串</param>
+    /// <param name="b">第二个字符串</param>
+    /// <returns>比较结果：小于0表示a在b前，等于0表示相同，大于0表示a在b后</returns>
+    /// <remarks>自然排序将数字部分按数值比较，文本部分按字典序比较，例如："file1.txt" &lt; "file2.txt" &lt; "file10.txt"</remarks>
     public static int CompareString(string a, string b)
     {
         if (a == null && b == null) return 0;
@@ -57,6 +61,12 @@ public static class SortUtil
     /// <summary>
     ///     自然排序
     /// </summary>
+    /// <typeparam name="T">元素类型</typeparam>
+    /// <param name="source">数据源</param>
+    /// <param name="keySelector">键选择器函数</param>
+    /// <returns>排序后的序列</returns>
+    /// <exception cref="ArgumentNullException">当source或keySelector为null时抛出</exception>
+    /// <remarks>使用自然排序算法对集合进行排序，适用于包含数字的文件名或标识符</remarks>
     public static IOrderedEnumerable<T> NaturalSort<T>(IEnumerable<T> source, Func<T, string> keySelector)
     {
         if (source == null)
