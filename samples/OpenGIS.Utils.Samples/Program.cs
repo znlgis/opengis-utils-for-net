@@ -1,16 +1,13 @@
-using System;
+namespace OpenGIS.Utils.Samples;
 
-namespace OpenGIS.Utils.Samples
+class Program
 {
-    class Program
+    static void Main(string[] args)
     {
-        static void Main(string[] args)
-        {
-            Console.WriteLine("OpenGIS Utils for .NET - Samples");
-            Console.WriteLine("=================================");
-            Console.WriteLine();
-            Console.WriteLine("This is a sample application for demonstrating OpenGIS.Utils functionality.");
-            Console.WriteLine("Additional samples will be added in subdirectories.");
-        }
+        Console.WriteLine("OpenGIS Utils for .NET - Samples");
+        Console.WriteLine("=================================");
+        Console.WriteLine();
+        Console.WriteLine("This is a sample application for demonstrating OpenGIS.Utils functionality.");
+        Console.WriteLine("Additional samples will be added in subdirectories.");
     }
 }

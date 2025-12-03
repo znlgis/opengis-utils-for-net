@@ -3,74 +3,73 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 
-namespace OpenGIS.Utils.Utils
+namespace OpenGIS.Utils.Utils;
+
+/// <summary>
+///     排序工具类
+/// </summary>
+public static class SortUtil
 {
     /// <summary>
-    /// 排序工具类
+    ///     自然排序比较字符串
     /// </summary>
-    public static class SortUtil
+    public static int CompareString(string a, string b)
     {
-        /// <summary>
-        /// 自然排序比较字符串
-        /// </summary>
-        public static int CompareString(string a, string b)
+        if (a == null && b == null) return 0;
+        if (a == null) return -1;
+        if (b == null) return 1;
+
+        var regex = new Regex(@"(\d+)|(\D+)");
+        var aParts = regex.Matches(a).Cast<Match>().Select(m => m.Value).ToArray();
+        var bParts = regex.Matches(b).Cast<Match>().Select(m => m.Value).ToArray();
+
+        for (int i = 0; i < Math.Min(aParts.Length, bParts.Length); i++)
         {
-            if (a == null && b == null) return 0;
-            if (a == null) return -1;
-            if (b == null) return 1;
+            var aPart = aParts[i];
+            var bPart = bParts[i];
 
-            var regex = new Regex(@"(\d+)|(\D+)");
-            var aParts = regex.Matches(a).Cast<Match>().Select(m => m.Value).ToArray();
-            var bParts = regex.Matches(b).Cast<Match>().Select(m => m.Value).ToArray();
+            // 尝试解析为数字
+            var aIsNumeric = int.TryParse(aPart, out int aNum);
+            var bIsNumeric = int.TryParse(bPart, out int bNum);
 
-            for (int i = 0; i < Math.Min(aParts.Length, bParts.Length); i++)
+            if (aIsNumeric && bIsNumeric)
             {
-                var aPart = aParts[i];
-                var bPart = bParts[i];
-
-                // 尝试解析为数字
-                var aIsNumeric = int.TryParse(aPart, out int aNum);
-                var bIsNumeric = int.TryParse(bPart, out int bNum);
-
-                if (aIsNumeric && bIsNumeric)
-                {
-                    // 都是数字，按数值比较
-                    var numCompare = aNum.CompareTo(bNum);
-                    if (numCompare != 0)
-                        return numCompare;
-                }
-                else
-                {
-                    // 至少有一个不是数字，按字符串比较
-                    var strCompare = string.Compare(aPart, bPart, StringComparison.Ordinal);
-                    if (strCompare != 0)
-                        return strCompare;
-                }
+                // 都是数字，按数值比较
+                var numCompare = aNum.CompareTo(bNum);
+                if (numCompare != 0)
+                    return numCompare;
             }
-
-            // 如果前面都相同，比较长度
-            return aParts.Length.CompareTo(bParts.Length);
+            else
+            {
+                // 至少有一个不是数字，按字符串比较
+                var strCompare = string.Compare(aPart, bPart, StringComparison.Ordinal);
+                if (strCompare != 0)
+                    return strCompare;
+            }
         }
 
-        /// <summary>
-        /// 自然排序
-        /// </summary>
-        public static IOrderedEnumerable<T> NaturalSort<T>(IEnumerable<T> source, Func<T, string> keySelector)
-        {
-            if (source == null)
-                throw new ArgumentNullException(nameof(source));
-            if (keySelector == null)
-                throw new ArgumentNullException(nameof(keySelector));
+        // 如果前面都相同，比较长度
+        return aParts.Length.CompareTo(bParts.Length);
+    }
 
-            return source.OrderBy(keySelector, new NaturalStringComparer());
-        }
+    /// <summary>
+    ///     自然排序
+    /// </summary>
+    public static IOrderedEnumerable<T> NaturalSort<T>(IEnumerable<T> source, Func<T, string> keySelector)
+    {
+        if (source == null)
+            throw new ArgumentNullException(nameof(source));
+        if (keySelector == null)
+            throw new ArgumentNullException(nameof(keySelector));
 
-        private class NaturalStringComparer : IComparer<string>
+        return source.OrderBy(keySelector, new NaturalStringComparer());
+    }
+
+    private class NaturalStringComparer : IComparer<string>
+    {
+        public int Compare(string? x, string? y)
         {
-            public int Compare(string? x, string? y)
-            {
-                return CompareString(x ?? string.Empty, y ?? string.Empty);
-            }
+            return CompareString(x ?? string.Empty, y ?? string.Empty);
         }
     }
 }

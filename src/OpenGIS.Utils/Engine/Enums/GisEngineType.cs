@@ -1,18 +1,17 @@
-namespace OpenGIS.Utils.Engine.Enums
+namespace OpenGIS.Utils.Engine.Enums;
+
+/// <summary>
+///     GIS 引擎类型枚举
+/// </summary>
+public enum GisEngineType
 {
     /// <summary>
-    /// GIS 引擎类型枚举
+    ///     GeoTools 引擎（对应 NetTopologySuite）
     /// </summary>
-    public enum GisEngineType
-    {
-        /// <summary>
-        /// GeoTools 引擎（对应 NetTopologySuite）
-        /// </summary>
-        GEOTOOLS,
+    GEOTOOLS,
 
-        /// <summary>
-        /// GDAL 引擎（对应 MaxRev.Gdal.Universal）
-        /// </summary>
-        GDAL
-    }
+    /// <summary>
+    ///     GDAL 引擎（对应 MaxRev.Gdal.Universal）
+    /// </summary>
+    GDAL
 }
