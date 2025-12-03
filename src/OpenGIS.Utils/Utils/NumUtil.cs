@@ -16,7 +16,7 @@ public static class NumUtil
     public static string GetPlainString(double number)
     {
         if (double.IsNaN(number) || double.IsInfinity(number))
-            return number.ToString();
+            return number.ToString(CultureInfo.InvariantCulture);
 
         // 使用 "G17" 格式确保精度
         var str = number.ToString("G17", CultureInfo.InvariantCulture);
@@ -24,8 +24,9 @@ public static class NumUtil
         // 如果包含 E 或 e，则是科学计数法，需要转换
         if (str.IndexOf('E') >= 0 || str.IndexOf('e') >= 0)
         {
+            var decimalPlaces = GetDecimalPlaces(number);
             // 使用定点表示法
-            return number.ToString("F" + GetDecimalPlaces(number), CultureInfo.InvariantCulture)
+            return number.ToString($"F{decimalPlaces}", CultureInfo.InvariantCulture)
                 .TrimEnd('0')
                 .TrimEnd('.');
         }
@@ -62,7 +63,7 @@ public static class NumUtil
     /// <returns>格式化后的字符串</returns>
     public static string FormatNumber(double value, int decimals)
     {
-        return value.ToString("F" + decimals, CultureInfo.InvariantCulture);
+        return value.ToString($"F{decimals}", CultureInfo.InvariantCulture);
     }
 
     /// <summary>

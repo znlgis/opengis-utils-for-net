@@ -30,7 +30,7 @@ public static class GeometryUtil
     /// <returns>OGR 几何对象</returns>
     /// <exception cref="ArgumentException">当 WKT 为空或格式无效时抛出</exception>
     /// <example>
-    /// <code>
+    ///     <code>
     /// var wkt = "POINT (116.404 39.915)";
     /// var geom = GeometryUtil.Wkt2Geometry(wkt);
     /// </code>
@@ -213,7 +213,7 @@ public static class GeometryUtil
     /// <returns>缓冲后的几何对象</returns>
     /// <exception cref="ArgumentNullException">当几何对象为 null 时抛出</exception>
     /// <example>
-    /// <code>
+    ///     <code>
     /// var wkt = "POINT (0 0)";
     /// var geom = GeometryUtil.Wkt2Geometry(wkt);
     /// var buffered = GeometryUtil.Buffer(geom, 10.0);
@@ -271,19 +271,17 @@ public static class GeometryUtil
         if (geometries == null)
             throw new ArgumentNullException(nameof(geometries));
 
-        // Use as array or convert once to avoid multiple enumerations
-        var geomArray = geometries as OgrGeometry[] ?? geometries.ToArray();
-        
-        if (geomArray.Length == 0)
+        var geomList = geometries as IList<OgrGeometry> ?? geometries.ToList();
+
+        if (geomList.Count == 0)
             throw new ArgumentException("Geometry list cannot be empty", nameof(geometries));
 
-        if (geomArray.Length == 1)
-            return geomArray[0];
+        if (geomList.Count == 1)
+            return geomList[0];
 
-        OgrGeometry result = geomArray[0];
-        for (int i = 1; i < geomArray.Length; i++)
-            result = result.Union(geomArray[i]);
-        
+        OgrGeometry result = geomList[0];
+        for (int i = 1; i < geomList.Count; i++) result = result.Union(geomList[i]);
+
         return result;
     }
 

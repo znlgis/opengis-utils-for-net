@@ -11,7 +11,7 @@ namespace OpenGIS.Utils.Utils;
 public static class SortUtil
 {
     // Cache compiled regex for performance
-    private static readonly Regex NaturalSortRegex = new Regex(@"(\d+)|(\D+)", RegexOptions.Compiled);
+    private static readonly Regex NaturalSortRegex = new(@"(\d+)|(\D+)", RegexOptions.Compiled);
 
     /// <summary>
     ///     自然排序比较字符串

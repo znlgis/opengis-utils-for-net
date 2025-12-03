@@ -8,6 +8,8 @@ namespace OpenGIS.Utils.Engine;
 /// </summary>
 public static class GisEngineFactory
 {
+    private static readonly GdalEngine _gdalEngineInstance = new();
+
     /// <summary>
     ///     根据引擎类型获取引擎实例
     /// </summary>
@@ -18,8 +20,8 @@ public static class GisEngineFactory
     {
         return engineType switch
         {
-            GisEngineType.GEOTOOLS => new GdalEngine(), // GeoTools now redirects to GDAL
-            GisEngineType.GDAL => new GdalEngine(),
+            GisEngineType.GEOTOOLS => _gdalEngineInstance, // GeoTools now redirects to GDAL
+            GisEngineType.GDAL => _gdalEngineInstance,
             _ => throw new EngineNotSupportedException($"Engine type {engineType} is not supported")
         };
     }
@@ -33,7 +35,7 @@ public static class GisEngineFactory
     public static GisEngine GetEngine(DataFormatType format)
     {
         // All formats now use GDAL
-        return new GdalEngine();
+        return _gdalEngineInstance;
     }
 
     /// <summary>
@@ -44,15 +46,7 @@ public static class GisEngineFactory
     /// <returns>如果成功获取引擎返回 true，否则返回 false</returns>
     public static bool TryGetEngine(DataFormatType format, out GisEngine? engine)
     {
-        try
-        {
-            engine = GetEngine(format);
-            return true;
-        }
-        catch
-        {
-            engine = null;
-            return false;
-        }
+        engine = _gdalEngineInstance;
+        return true;
     }
 }

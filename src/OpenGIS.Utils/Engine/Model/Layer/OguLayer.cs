@@ -57,7 +57,8 @@ public class OguLayer
     /// <exception cref="LayerValidationException">数据验证失败时抛出</exception>
     public void Validate()
     {
-        if (string.IsNullOrWhiteSpace(Name)) throw new LayerValidationException("Layer name cannot be null or empty");
+        if (string.IsNullOrWhiteSpace(Name))
+            throw new LayerValidationException("Layer name cannot be null or empty");
 
         if (Fields == null || Fields.Count == 0)
             throw new LayerValidationException("Layer must have at least one field");
@@ -65,10 +66,8 @@ public class OguLayer
         // 验证字段名称唯一性 - use HashSet for better performance
         var fieldNameSet = new HashSet<string>();
         foreach (var field in Fields)
-        {
             if (!fieldNameSet.Add(field.Name))
-                throw new LayerValidationException("Field names must be unique");
-        }
+                throw new LayerValidationException($"Field name '{field.Name}' is duplicated");
 
         // 验证要素属性与字段定义一致
         foreach (var feature in Features)

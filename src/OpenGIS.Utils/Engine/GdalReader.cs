@@ -81,24 +81,16 @@ public class GdalReader : ILayerReader
             throw new ArgumentException("Path cannot be null or empty", nameof(path));
 
         var layerNames = new List<string>();
-        OgrDataSource? dataSource = null;
 
-        try
+        using var dataSource = Ogr.Open(path, 0);
+        if (dataSource == null)
+            return layerNames;
+
+        var layerCount = dataSource.GetLayerCount();
+        for (int i = 0; i < layerCount; i++)
         {
-            dataSource = Ogr.Open(path, 0);
-
-            if (dataSource == null)
-                return layerNames;
-
-            for (int i = 0; i < dataSource.GetLayerCount(); i++)
-            {
-                using var layer = dataSource.GetLayerByIndex(i);
-                if (layer != null) layerNames.Add(layer.GetName());
-            }
-        }
-        finally
-        {
-            dataSource?.Dispose();
+            using var layer = dataSource.GetLayerByIndex(i);
+            if (layer != null) layerNames.Add(layer.GetName());
         }
 
         return layerNames;
@@ -111,7 +103,6 @@ public class GdalReader : ILayerReader
         // 读取字段定义
         var layerDefn = ogrLayer.GetLayerDefn();
         var fieldCount = layerDefn.GetFieldCount();
-        var fields = new List<OguField>(fieldCount);
 
         for (int i = 0; i < fieldCount; i++)
         {
@@ -123,7 +114,6 @@ public class GdalReader : ILayerReader
                 Length = fieldDefn.GetWidth(),
                 Precision = fieldDefn.GetPrecision()
             };
-            fields.Add(field);
             layer.AddField(field);
         }
 
@@ -132,18 +122,15 @@ public class GdalReader : ILayerReader
         layer.GeometryType = MapOgrGeometryType(geomType);
 
         // 应用属性过滤
-        if (!string.IsNullOrWhiteSpace(attributeFilter)) ogrLayer.SetAttributeFilter(attributeFilter);
+        if (!string.IsNullOrWhiteSpace(attributeFilter))
+            ogrLayer.SetAttributeFilter(attributeFilter);
 
         // 应用空间过滤
         if (!string.IsNullOrWhiteSpace(spatialFilterWkt))
             try
             {
-                OSGeo.OGR.Geometry filterGeom = OSGeo.OGR.Geometry.CreateFromWkt(spatialFilterWkt);
-                if (filterGeom != null)
-                {
-                    ogrLayer.SetSpatialFilter(filterGeom);
-                    filterGeom.Dispose();
-                }
+                using var filterGeom = OSGeo.OGR.Geometry.CreateFromWkt(spatialFilterWkt);
+                if (filterGeom != null) ogrLayer.SetSpatialFilter(filterGeom);
             }
             catch
             {
@@ -154,9 +141,9 @@ public class GdalReader : ILayerReader
         int fid = 1;
         ogrLayer.ResetReading();
 
-        Feature ogrFeature;
+        Feature? ogrFeature;
         while ((ogrFeature = ogrLayer.GetNextFeature()) != null)
-            try
+            using (ogrFeature)
             {
                 var feature = new OguFeature { Fid = fid++ };
 
@@ -169,7 +156,7 @@ public class GdalReader : ILayerReader
                 }
 
                 // 读取属性
-                foreach (var field in fields)
+                foreach (var field in layer.Fields)
                 {
                     var fieldIndex = ogrFeature.GetFieldIndex(field.Name);
                     if (fieldIndex >= 0)
@@ -180,10 +167,6 @@ public class GdalReader : ILayerReader
                 }
 
                 layer.AddFeature(feature);
-            }
-            finally
-            {
-                ogrFeature.Dispose();
             }
 
         return layer;

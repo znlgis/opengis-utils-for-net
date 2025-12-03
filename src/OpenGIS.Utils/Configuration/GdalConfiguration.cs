@@ -13,7 +13,7 @@ namespace OpenGIS.Utils.Configuration;
 public static class GdalConfiguration
 {
     private static bool _isConfigured;
-    private static readonly object _lock = new object();
+    private static readonly object _lock = new();
 
     /// <summary>
     ///     静态构造函数，自动初始化

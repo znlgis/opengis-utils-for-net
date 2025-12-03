@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Linq;
 using System.Text;
 
 namespace OpenGIS.Utils.Utils;
@@ -23,7 +22,7 @@ public static class EncodingUtil
     /// <returns>检测到的编码</returns>
     /// <exception cref="FileNotFoundException">当文件不存在时抛出</exception>
     /// <example>
-    /// <code>
+    ///     <code>
     /// var encoding = EncodingUtil.GetFileEncoding("data.txt");
     /// var content = File.ReadAllText("data.txt", encoding);
     /// </code>
@@ -33,10 +32,8 @@ public static class EncodingUtil
         if (!File.Exists(filePath))
             throw new FileNotFoundException("File not found", filePath);
 
-        using (var stream = File.OpenRead(filePath))
-        {
-            return GetFileEncoding(stream);
-        }
+        using var stream = File.OpenRead(filePath);
+        return GetFileEncoding(stream);
     }
 
     /// <summary>
@@ -51,11 +48,12 @@ public static class EncodingUtil
         if (stream == null)
             throw new ArgumentNullException(nameof(stream));
 
-        var buffer = new byte[Math.Min(4096, stream.Length)];
-        var bytesRead = stream.Read(buffer, 0, buffer.Length);
+        var bufferSize = (int)Math.Min(4096, stream.Length);
+        var buffer = new byte[bufferSize];
+        var bytesRead = stream.Read(buffer, 0, bufferSize);
         stream.Position = 0; // 重置流位置
 
-        return DetectEncoding(buffer.Take(bytesRead).ToArray());
+        return DetectEncoding(buffer, bytesRead);
     }
 
     /// <summary>
@@ -66,14 +64,26 @@ public static class EncodingUtil
     /// <remarks>支持检测 UTF-8、UTF-16 LE/BE、GBK/GB2312 等编码</remarks>
     public static Encoding DetectEncoding(byte[] buffer)
     {
-        if (buffer == null || buffer.Length == 0)
+        return DetectEncoding(buffer, buffer?.Length ?? 0);
+    }
+
+    /// <summary>
+    ///     检测字节数组编码
+    /// </summary>
+    /// <param name="buffer">字节数组</param>
+    /// <param name="length">要检测的字节长度</param>
+    /// <returns>检测到的编码，默认返回 UTF-8</returns>
+    /// <remarks>支持检测 UTF-8、UTF-16 LE/BE、GBK/GB2312 等编码</remarks>
+    private static Encoding DetectEncoding(byte[] buffer, int length)
+    {
+        if (buffer == null || length == 0)
             return Encoding.UTF8;
 
         // 检测 BOM
-        if (buffer.Length >= 3 && buffer[0] == 0xEF && buffer[1] == 0xBB && buffer[2] == 0xBF)
+        if (length >= 3 && buffer[0] == 0xEF && buffer[1] == 0xBB && buffer[2] == 0xBF)
             return Encoding.UTF8;
 
-        if (buffer.Length >= 2)
+        if (length >= 2)
         {
             if (buffer[0] == 0xFF && buffer[1] == 0xFE)
                 return Encoding.Unicode; // UTF-16 LE
@@ -83,11 +93,11 @@ public static class EncodingUtil
         }
 
         // 尝试检测 UTF-8（无 BOM）
-        if (IsUTF8(buffer))
+        if (IsUTF8(buffer, length))
             return Encoding.UTF8;
 
         // 尝试检测 GBK/GB2312
-        if (IsGBK(buffer))
+        if (IsGBK(buffer, length))
             return Encoding.GetEncoding("GBK");
 
         // 默认返回系统默认编码
@@ -113,10 +123,10 @@ public static class EncodingUtil
     /// <summary>
     ///     判断是否为 UTF-8 编码
     /// </summary>
-    private static bool IsUTF8(byte[] buffer)
+    private static bool IsUTF8(byte[] buffer, int length)
     {
         int i = 0;
-        while (i < buffer.Length)
+        while (i < length)
         {
             if (buffer[i] <= 0x7F)
             {
@@ -137,7 +147,7 @@ public static class EncodingUtil
             i++;
             for (int j = 0; j < count; j++)
             {
-                if (i >= buffer.Length || (buffer[i] & 0xC0) != 0x80)
+                if (i >= length || (buffer[i] & 0xC0) != 0x80)
                     return false;
                 i++;
             }
@@ -149,9 +159,9 @@ public static class EncodingUtil
     /// <summary>
     ///     判断是否为 GBK 编码
     /// </summary>
-    private static bool IsGBK(byte[] buffer)
+    private static bool IsGBK(byte[] buffer, int length)
     {
-        for (int i = 0; i < buffer.Length - 1; i++)
+        for (int i = 0; i < length - 1; i++)
             if (buffer[i] >= 0x81 && buffer[i] <= 0xFE)
             {
                 if ((buffer[i + 1] >= 0x40 && buffer[i + 1] <= 0x7E) ||

@@ -9,14 +9,10 @@ namespace OpenGIS.Utils.Engine;
 /// </summary>
 public class GdalEngine : GisEngine
 {
-    private static readonly IReadOnlyList<DataFormatType> _supportedFormats = new List<DataFormatType>
+    private static readonly IList<DataFormatType> _supportedFormats = new[]
     {
-        DataFormatType.FILEGDB,
-        DataFormatType.GEOPACKAGE,
-        DataFormatType.KML,
-        DataFormatType.DXF,
-        DataFormatType.SHP,
-        DataFormatType.GEOJSON
+        DataFormatType.FILEGDB, DataFormatType.GEOPACKAGE, DataFormatType.KML, DataFormatType.DXF,
+        DataFormatType.SHP, DataFormatType.GEOJSON
     };
 
     /// <summary>
@@ -27,7 +23,7 @@ public class GdalEngine : GisEngine
     /// <summary>
     ///     支持的格式列表
     /// </summary>
-    public override IList<DataFormatType> SupportedFormats => (IList<DataFormatType>)_supportedFormats;
+    public override IList<DataFormatType> SupportedFormats => _supportedFormats;
 
     /// <summary>
     ///     创建读取器

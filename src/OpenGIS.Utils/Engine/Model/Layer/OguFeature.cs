@@ -38,8 +38,7 @@ public class OguFeature
     /// <returns>字段值，如果字段不存在则返回 null</returns>
     public object? GetValue(string fieldName)
     {
-        if (Attributes.TryGetValue(fieldName, out var fieldValue)) return fieldValue.Value;
-        return null;
+        return Attributes.TryGetValue(fieldName, out var fieldValue) ? fieldValue.Value : null;
     }
 
     /// <summary>
@@ -49,8 +48,8 @@ public class OguFeature
     /// <param name="value">字段值</param>
     public void SetValue(string fieldName, object? value)
     {
-        if (Attributes.ContainsKey(fieldName))
-            Attributes[fieldName].Value = value;
+        if (Attributes.TryGetValue(fieldName, out var fieldValue))
+            fieldValue.Value = value;
         else
             Attributes[fieldName] = new OguFieldValue(value);
     }
@@ -62,8 +61,7 @@ public class OguFeature
     /// <returns>字段值对象，如果字段不存在则返回 null</returns>
     public OguFieldValue? GetAttribute(string fieldName)
     {
-        if (Attributes.TryGetValue(fieldName, out var fieldValue)) return fieldValue;
-        return null;
+        return Attributes.TryGetValue(fieldName, out var fieldValue) ? fieldValue : null;
     }
 
     /// <summary>
