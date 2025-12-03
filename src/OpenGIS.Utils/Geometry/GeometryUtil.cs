@@ -54,6 +54,11 @@ public static class GeometryUtil
     /// <summary>
     ///     GeoJSON 转 Geometry
     /// </summary>
+    /// <remarks>
+    ///     GDAL/OGR doesn't support direct GeoJSON string parsing.
+    ///     This is a breaking change from the NetTopologySuite implementation.
+    ///     Users should either use WKT format or load GeoJSON from files.
+    /// </remarks>
     public static OgrGeometry Geojson2Geometry(string geojson)
     {
         if (string.IsNullOrWhiteSpace(geojson))
@@ -430,6 +435,11 @@ public static class GeometryUtil
     /// <summary>
     ///     验证几何有效性
     /// </summary>
+    /// <remarks>
+    ///     Note: GDAL/OGR provides less detailed validation error information
+    ///     compared to NetTopologySuite. Error types and locations are not
+    ///     available in this implementation.
+    /// </remarks>
     public static TopologyValidationResult IsValid(OgrGeometry geom)
     {
         if (geom == null)
@@ -439,7 +449,7 @@ public static class GeometryUtil
 
         if (!result.IsValid)
         {
-            result.ErrorMessage = "Geometry is not valid";
+            result.ErrorMessage = "Geometry is not valid (detailed error information not available in GDAL)";
             result.ErrorType = OguTopologyErrorType.ERROR;
         }
 
@@ -478,11 +488,17 @@ public static class GeometryUtil
     /// <summary>
     ///     精确比较（带容差）
     /// </summary>
+    /// <remarks>
+    ///     Note: OGR doesn't have direct tolerance-based geometry comparison.
+    ///     This implementation uses distance as an approximation, which may differ
+    ///     from NetTopologySuite's original behavior.
+    /// </remarks>
     public static bool EqualsExactTolerance(OgrGeometry a, OgrGeometry b, double tolerance)
     {
         if (a == null && b == null) return true;
         if (a == null || b == null) return false;
-        // OGR doesn't have direct tolerance comparison, use distance as approximation
+        
+        // Check if geometries are within the tolerance distance
         return a.Distance(b) <= tolerance;
     }
 

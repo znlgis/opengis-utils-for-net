@@ -77,7 +77,11 @@ public static class CrsUtil
             throw new ArgumentNullException(nameof(geometry));
 
         var centroid = geometry.Centroid();
+        if (centroid == null || centroid.IsEmpty())
+            throw new ArgumentException("Failed to calculate centroid", nameof(geometry));
+            
         double longitude = centroid.GetX(0);
+        centroid.Dispose();
         return GetDh(longitude);
     }
 
