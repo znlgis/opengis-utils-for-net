@@ -1,0 +1,60 @@
+name: Publish NuGet Package
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Triggers on version tags like v1.0.0, v1.2.3, etc.
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to create GitHub releases and upload assets
+      packages: write  # May be needed for package registries
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+    
+    - name: Extract version from tag
+      id: get_version
+      run: |
+        # Remove 'v' prefix from tag to get version number
+        VERSION=${GITHUB_REF#refs/tags/v}
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "Extracted version: $VERSION"
+    
+    - name: Update project version
+      run: |
+        # Update the Version property in the .csproj file
+        sed -i "s|<Version>.*</Version>|<Version>${{ steps.get_version.outputs.VERSION }}</Version>|g" src/OpenGIS.Utils/OpenGIS.Utils.csproj
+        echo "Updated version in .csproj to ${{ steps.get_version.outputs.VERSION }}"
+        grep -A 1 "<Version>" src/OpenGIS.Utils/OpenGIS.Utils.csproj
+    
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Build
+      run: dotnet build --configuration Release --no-restore
+    
+    - name: Run tests
+      run: dotnet test --configuration Release --no-build --verbosity normal
+    
+    - name: Pack NuGet package
+      run: dotnet pack src/OpenGIS.Utils/OpenGIS.Utils.csproj --configuration Release --no-build --output ./nupkg
+    
+    - name: Publish to NuGet.org
+      run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: ./nupkg/*.nupkg
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

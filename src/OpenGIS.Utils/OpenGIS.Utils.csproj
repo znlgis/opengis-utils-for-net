@@ -21,7 +21,8 @@
     <RepositoryType>git</RepositoryType>
     <PackageTags>gis;opengis;gdal;ogr;shapefile;geojson;geopackage;spatial;geometry;coordinate;crs;postgis</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
-    <PackageIcon>icon.png</PackageIcon>
+    <!-- PackageIcon will be set when icon.png is added -->
+    <!-- <PackageIcon>icon.png</PackageIcon> -->
     
     <!-- 文档 -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
@@ -52,6 +53,10 @@
 
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
-    <None Include="..\..\icon.png" Pack="true" PackagePath="\" Condition="Exists('..\..\icon.png')" />
+  </ItemGroup>
+  
+  <!-- Include icon.png only if it exists -->
+  <ItemGroup Condition="Exists('..\..\icon.png')">
+    <None Include="..\..\icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
 </Project>
