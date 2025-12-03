@@ -99,9 +99,10 @@ public class GdalReader : ILayerReader
 
         // 读取字段定义
         var layerDefn = ogrLayer.GetLayerDefn();
-        var fields = new List<OguField>();
+        var fieldCount = layerDefn.GetFieldCount();
+        var fields = new List<OguField>(fieldCount);
 
-        for (int i = 0; i < layerDefn.GetFieldCount(); i++)
+        for (int i = 0; i < fieldCount; i++)
         {
             var fieldDefn = layerDefn.GetFieldDefn(i);
             var field = new OguField

@@ -13,7 +13,7 @@ namespace OpenGIS.Utils.Configuration;
 public static class GdalConfiguration
 {
     private static bool _isConfigured;
-    private static readonly object _lock = new();
+    private static readonly object _lock = new object();
 
     /// <summary>
     ///     静态构造函数，自动初始化
@@ -95,9 +95,9 @@ public static class GdalConfiguration
     public static IList<string> GetSupportedDrivers()
     {
         EnsureConfigured();
-        var drivers = new List<string>();
-
         var count = Ogr.GetDriverCount();
+        var drivers = new List<string>(count);
+
         for (int i = 0; i < count; i++)
         {
             var driver = Ogr.GetDriver(i);

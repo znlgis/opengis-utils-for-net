@@ -9,7 +9,7 @@ namespace OpenGIS.Utils.Engine;
 /// </summary>
 public class GdalEngine : GisEngine
 {
-    private static readonly IList<DataFormatType> _supportedFormats = new List<DataFormatType>
+    private static readonly IReadOnlyList<DataFormatType> _supportedFormats = new List<DataFormatType>
     {
         DataFormatType.FILEGDB,
         DataFormatType.GEOPACKAGE,
@@ -27,7 +27,7 @@ public class GdalEngine : GisEngine
     /// <summary>
     ///     支持的格式列表
     /// </summary>
-    public override IList<DataFormatType> SupportedFormats => _supportedFormats;
+    public override IList<DataFormatType> SupportedFormats => (IList<DataFormatType>)_supportedFormats;
 
     /// <summary>
     ///     创建读取器

@@ -10,6 +10,9 @@ namespace OpenGIS.Utils.Utils;
 /// </summary>
 public static class SortUtil
 {
+    // Cache compiled regex for performance
+    private static readonly Regex NaturalSortRegex = new Regex(@"(\d+)|(\D+)", RegexOptions.Compiled);
+
     /// <summary>
     ///     自然排序比较字符串
     /// </summary>
@@ -19,9 +22,8 @@ public static class SortUtil
         if (a == null) return -1;
         if (b == null) return 1;
 
-        var regex = new Regex(@"(\d+)|(\D+)");
-        var aParts = regex.Matches(a).Cast<Match>().Select(m => m.Value).ToArray();
-        var bParts = regex.Matches(b).Cast<Match>().Select(m => m.Value).ToArray();
+        var aParts = NaturalSortRegex.Matches(a).Cast<Match>().Select(m => m.Value).ToArray();
+        var bParts = NaturalSortRegex.Matches(b).Cast<Match>().Select(m => m.Value).ToArray();
 
         for (int i = 0; i < Math.Min(aParts.Length, bParts.Length); i++)
         {

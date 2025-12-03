@@ -192,6 +192,7 @@ public static class GtTxtUtil
         var z = coordinate.Z.HasValue ? NumUtil.GetPlainString(coordinate.Z.Value) : string.Empty;
         var remark = coordinate.Remark ?? string.Empty;
 
+        // Use string interpolation for better performance than string concatenation
         return $"{pointNumber}\t{ringNumber}\t{x}\t{y}\t{z}\t{remark}";
     }
 

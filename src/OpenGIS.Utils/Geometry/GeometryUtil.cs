@@ -213,15 +213,19 @@ public static class GeometryUtil
         if (geometries == null)
             throw new ArgumentNullException(nameof(geometries));
 
-        List<OgrGeometry> geomList = geometries.ToList();
-        if (geomList.Count == 0)
+        // Use as array or convert once to avoid multiple enumerations
+        var geomArray = geometries as OgrGeometry[] ?? geometries.ToArray();
+        
+        if (geomArray.Length == 0)
             throw new ArgumentException("Geometry list cannot be empty", nameof(geometries));
 
-        if (geomList.Count == 1)
-            return geomList[0];
+        if (geomArray.Length == 1)
+            return geomArray[0];
 
-        OgrGeometry result = geomList[0];
-        for (int i = 1; i < geomList.Count; i++) result = result.Union(geomList[i]);
+        OgrGeometry result = geomArray[0];
+        for (int i = 1; i < geomArray.Length; i++)
+            result = result.Union(geomArray[i]);
+        
         return result;
     }
 

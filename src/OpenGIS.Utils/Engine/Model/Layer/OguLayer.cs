@@ -62,15 +62,18 @@ public class OguLayer
         if (Fields == null || Fields.Count == 0)
             throw new LayerValidationException("Layer must have at least one field");
 
-        // 验证字段名称唯一性
-        List<string> fieldNames = Fields.Select(f => f.Name).ToList();
-        if (fieldNames.Distinct().Count() != fieldNames.Count)
-            throw new LayerValidationException("Field names must be unique");
+        // 验证字段名称唯一性 - use HashSet for better performance
+        var fieldNameSet = new HashSet<string>();
+        foreach (var field in Fields)
+        {
+            if (!fieldNameSet.Add(field.Name))
+                throw new LayerValidationException("Field names must be unique");
+        }
 
         // 验证要素属性与字段定义一致
         foreach (var feature in Features)
         foreach (var fieldName in feature.Attributes.Keys)
-            if (!Fields.Any(f => f.Name == fieldName))
+            if (!fieldNameSet.Contains(fieldName))
                 throw new LayerValidationException(
                     $"Feature contains attribute '{fieldName}' that is not defined in Fields");
     }

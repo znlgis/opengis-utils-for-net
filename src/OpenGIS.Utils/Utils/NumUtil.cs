@@ -20,10 +20,13 @@ public static class NumUtil
         var str = number.ToString("G17", CultureInfo.InvariantCulture);
 
         // 如果包含 E 或 e，则是科学计数法，需要转换
-        if (str.Contains("E") || str.Contains("e"))
+        if (str.IndexOf('E') >= 0 || str.IndexOf('e') >= 0)
+        {
             // 使用定点表示法
-            return number.ToString("F" + GetDecimalPlaces(number), CultureInfo.InvariantCulture).TrimEnd('0')
+            return number.ToString("F" + GetDecimalPlaces(number), CultureInfo.InvariantCulture)
+                .TrimEnd('0')
                 .TrimEnd('.');
+        }
 
         return str;
     }
