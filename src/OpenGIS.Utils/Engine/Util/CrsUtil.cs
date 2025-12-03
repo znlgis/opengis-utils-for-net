@@ -26,7 +26,7 @@ public static class CrsUtil
         GdalConfiguration.ConfigureGdal();
 
         // 使用 OGR 进行坐标转换
-        using var geometry = OSGeo.OGR.Geometry.CreateFromWkt(wkt);
+        using var geometry = OgrGeometry.CreateFromWkt(wkt);
         if (geometry == null)
             throw new ArgumentException("Invalid WKT", nameof(wkt));
 
@@ -79,7 +79,7 @@ public static class CrsUtil
         var centroid = geometry.Centroid();
         if (centroid == null || centroid.IsEmpty())
             throw new ArgumentException("Failed to calculate centroid", nameof(geometry));
-            
+
         double longitude = centroid.GetX(0);
         centroid.Dispose();
         return GetDh(longitude);

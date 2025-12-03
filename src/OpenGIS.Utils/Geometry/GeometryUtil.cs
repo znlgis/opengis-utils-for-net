@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.Json;
 using OpenGIS.Utils.Configuration;
 using OpenGIS.Utils.Engine.Model;
 using OSGeo.OGR;
@@ -35,7 +34,7 @@ public static class GeometryUtil
         var geom = OgrGeometry.CreateFromWkt(wkt);
         if (geom == null)
             throw new ArgumentException("Invalid WKT format", nameof(wkt));
-        
+
         return geom;
     }
 
@@ -222,10 +221,7 @@ public static class GeometryUtil
             return geomList[0];
 
         OgrGeometry result = geomList[0];
-        for (int i = 1; i < geomList.Count; i++)
-        {
-            result = result.Union(geomList[i]);
-        }
+        for (int i = 1; i < geomList.Count; i++) result = result.Union(geomList[i]);
         return result;
     }
 
@@ -332,13 +328,22 @@ public static class GeometryUtil
         var geometryType = geom.GetGeometryType();
         return geometryType switch
         {
-            wkbGeometryType.wkbPoint or wkbGeometryType.wkbPoint25D or wkbGeometryType.wkbPointM or wkbGeometryType.wkbPointZM => OguGeometryType.POINT,
-            wkbGeometryType.wkbLineString or wkbGeometryType.wkbLineString25D or wkbGeometryType.wkbLineStringM or wkbGeometryType.wkbLineStringZM => OguGeometryType.LINESTRING,
-            wkbGeometryType.wkbPolygon or wkbGeometryType.wkbPolygon25D or wkbGeometryType.wkbPolygonM or wkbGeometryType.wkbPolygonZM => OguGeometryType.POLYGON,
-            wkbGeometryType.wkbMultiPoint or wkbGeometryType.wkbMultiPoint25D or wkbGeometryType.wkbMultiPointM or wkbGeometryType.wkbMultiPointZM => OguGeometryType.MULTIPOINT,
-            wkbGeometryType.wkbMultiLineString or wkbGeometryType.wkbMultiLineString25D or wkbGeometryType.wkbMultiLineStringM or wkbGeometryType.wkbMultiLineStringZM => OguGeometryType.MULTILINESTRING,
-            wkbGeometryType.wkbMultiPolygon or wkbGeometryType.wkbMultiPolygon25D or wkbGeometryType.wkbMultiPolygonM or wkbGeometryType.wkbMultiPolygonZM => OguGeometryType.MULTIPOLYGON,
-            wkbGeometryType.wkbGeometryCollection or wkbGeometryType.wkbGeometryCollection25D or wkbGeometryType.wkbGeometryCollectionM or wkbGeometryType.wkbGeometryCollectionZM => OguGeometryType.GEOMETRYCOLLECTION,
+            wkbGeometryType.wkbPoint or wkbGeometryType.wkbPoint25D or wkbGeometryType.wkbPointM
+                or wkbGeometryType.wkbPointZM => OguGeometryType.POINT,
+            wkbGeometryType.wkbLineString or wkbGeometryType.wkbLineString25D or wkbGeometryType.wkbLineStringM
+                or wkbGeometryType.wkbLineStringZM => OguGeometryType.LINESTRING,
+            wkbGeometryType.wkbPolygon or wkbGeometryType.wkbPolygon25D or wkbGeometryType.wkbPolygonM
+                or wkbGeometryType.wkbPolygonZM => OguGeometryType.POLYGON,
+            wkbGeometryType.wkbMultiPoint or wkbGeometryType.wkbMultiPoint25D or wkbGeometryType.wkbMultiPointM
+                or wkbGeometryType.wkbMultiPointZM => OguGeometryType.MULTIPOINT,
+            wkbGeometryType.wkbMultiLineString or wkbGeometryType.wkbMultiLineString25D
+                or wkbGeometryType.wkbMultiLineStringM
+                or wkbGeometryType.wkbMultiLineStringZM => OguGeometryType.MULTILINESTRING,
+            wkbGeometryType.wkbMultiPolygon or wkbGeometryType.wkbMultiPolygon25D or wkbGeometryType.wkbMultiPolygonM
+                or wkbGeometryType.wkbMultiPolygonZM => OguGeometryType.MULTIPOLYGON,
+            wkbGeometryType.wkbGeometryCollection or wkbGeometryType.wkbGeometryCollection25D
+                or wkbGeometryType.wkbGeometryCollectionM
+                or wkbGeometryType.wkbGeometryCollectionZM => OguGeometryType.GEOMETRYCOLLECTION,
             _ => OguGeometryType.UNKNOWN
         };
     }
@@ -375,9 +380,9 @@ public static class GeometryUtil
         if (geom == null)
             throw new ArgumentNullException(nameof(geom));
 
-        var envelope = new OSGeo.OGR.Envelope();
+        var envelope = new Envelope();
         geom.GetEnvelope(envelope);
-        
+
         // Create a polygon from the envelope
         var ring = new OgrGeometry(wkbGeometryType.wkbLinearRing);
         ring.AddPoint_2D(envelope.MinX, envelope.MinY);
@@ -385,10 +390,10 @@ public static class GeometryUtil
         ring.AddPoint_2D(envelope.MaxX, envelope.MaxY);
         ring.AddPoint_2D(envelope.MinX, envelope.MaxY);
         ring.AddPoint_2D(envelope.MinX, envelope.MinY);
-        
+
         var polygon = new OgrGeometry(wkbGeometryType.wkbPolygon);
         polygon.AddGeometry(ring);
-        
+
         return polygon;
     }
 
@@ -497,7 +502,7 @@ public static class GeometryUtil
     {
         if (a == null && b == null) return true;
         if (a == null || b == null) return false;
-        
+
         // Check if geometries are within the tolerance distance
         return a.Distance(b) <= tolerance;
     }

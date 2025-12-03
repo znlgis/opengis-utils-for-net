@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using OpenGIS.Utils.Configuration;
 using OpenGIS.Utils.Engine.Model.Layer;
 using OpenGIS.Utils.Utils;
-using OpenGIS.Utils.Configuration;
 using OSGeo.OGR;
 using OgrDataSource = OSGeo.OGR.DataSource;
 
@@ -96,27 +96,27 @@ public static class ShpUtil
     /// <summary>
     ///     获取 Shapefile 边界
     /// </summary>
-    public static OSGeo.OGR.Envelope? GetShapefileBounds(string shpPath)
+    public static Envelope? GetShapefileBounds(string shpPath)
     {
         if (!File.Exists(shpPath))
             throw new FileNotFoundException("Shapefile not found", shpPath);
 
         GdalConfiguration.ConfigureGdal();
-        
+
         OgrDataSource? dataSource = null;
         try
         {
             dataSource = Ogr.Open(shpPath, 0);
             if (dataSource == null)
                 return null;
-                
+
             var layer = dataSource.GetLayerByIndex(0);
             if (layer == null)
                 return null;
-                
-            var envelope = new OSGeo.OGR.Envelope();
+
+            var envelope = new Envelope();
             layer.GetExtent(envelope, 1);
-            
+
             return envelope;
         }
         finally

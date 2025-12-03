@@ -1,8 +1,8 @@
 namespace OpenGIS.Utils.Samples;
 
-class Program
+internal class Program
 {
-    static void Main(string[] args)
+    private static void Main(string[] args)
     {
         Console.WriteLine("OpenGIS Utils for .NET - Samples");
         Console.WriteLine("=================================");
