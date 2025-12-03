@@ -32,6 +32,7 @@ public class GdalEngine : GisEngine
     /// <summary>
     ///     创建读取器
     /// </summary>
+    /// <returns>GDAL 图层读取器实例</returns>
     public override ILayerReader CreateReader()
     {
         return new GdalReader();
@@ -40,6 +41,7 @@ public class GdalEngine : GisEngine
     /// <summary>
     ///     创建写入器
     /// </summary>
+    /// <returns>GDAL 图层写入器实例</returns>
     public override ILayerWriter CreateWriter()
     {
         return new GdalWriter();
