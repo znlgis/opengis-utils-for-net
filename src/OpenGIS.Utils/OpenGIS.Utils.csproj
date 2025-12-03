@@ -11,7 +11,7 @@
     <Authors>znlgis</Authors>
     <Company>znlgis</Company>
     <Product>OpenGIS Utils for .NET</Product>
-    <Description>OGU4Net (OpenGIS Utils for .NET) 是基于 NetTopologySuite 和 MaxRev.Gdal.Universal 的 .NET GIS 二次开发工具库。提供统一的图层模型和便捷的格式转换功能，简化 GIS 数据的读取、处理和导出操作。</Description>
+    <Description>OGU4Net (OpenGIS Utils for .NET) 是基于 MaxRev.Gdal.Universal 的 .NET GIS 二次开发工具库。提供统一的图层模型和便捷的格式转换功能，简化 GIS 数据的读取、处理和导出操作。</Description>
     <Copyright>Copyright © znlgis 2025</Copyright>
     
     <!-- 许可证和仓库 -->
@@ -19,7 +19,7 @@
     <PackageProjectUrl>https://github.com/znlgis/opengis-utils-for-net</PackageProjectUrl>
     <RepositoryUrl>https://github.com/znlgis/opengis-utils-for-net</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
-    <PackageTags>gis;opengis;nettopologysuite;gdal;shapefile;geojson;geopackage;spatial;geometry;coordinate;crs;postgis</PackageTags>
+    <PackageTags>gis;opengis;gdal;ogr;shapefile;geojson;geopackage;spatial;geometry;coordinate;crs;postgis</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
     
@@ -29,11 +29,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- 核心 GIS 依赖 -->
-    <PackageReference Include="NetTopologySuite" Version="2.6.0" />
-    <PackageReference Include="NetTopologySuite.IO.GeoJSON" Version="4.0.0" />
-    <PackageReference Include="NetTopologySuite.IO.ShapeFile" Version="2.1.0" />
-    
     <!-- GDAL 依赖（跨平台） -->
     <PackageReference Include="MaxRev.Gdal.Core" Version="3.12.0.427" />
     <PackageReference Include="MaxRev.Gdal.Universal" Version="3.12.0.427" />

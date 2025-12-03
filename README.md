@@ -8,7 +8,7 @@
 
 ### Overview
 
-**OpenGIS Utils for .NET** (OGU4Net) is a comprehensive GIS development toolkit for .NET based on [NetTopologySuite](https://github.com/NetTopologySuite/NetTopologySuite) and [MaxRev.Gdal.Universal](https://github.com/MaxRev-Dev/gdal.netcore). It provides a unified layer model and convenient format conversion capabilities to simplify reading, processing, and exporting GIS data.
+**OpenGIS Utils for .NET** (OGU4Net) is a comprehensive GIS development toolkit for .NET based on [MaxRev.Gdal.Universal](https://github.com/MaxRev-Dev/gdal.netcore). It provides a unified layer model and convenient format conversion capabilities to simplify reading, processing, and exporting GIS data.
 
 This project is a complete port of [opengis-utils-for-java](https://github.com/znlgis/opengis-utils-for-java) to C# .NET Standard 2.0.
 
@@ -18,7 +18,7 @@ This project is a complete port of [opengis-utils-for-java](https://github.com/z
 - 🔄 **Format Conversion**: Seamless conversion between Shapefile, GeoJSON, FileGDB, PostGIS, GeoPackage, KML, DXF, and TXT formats
 - 🌐 **Coordinate System Support**: Comprehensive CRS transformation using GDAL/OGR with built-in CGCS2000 support
 - 📐 **Geometry Processing**: Rich set of spatial operations including buffer, intersection, union, topology validation, and more
-- 🔧 **Dual Engine Architecture**: NetTopologySuite for lightweight operations, GDAL for enterprise formats
+- 🔧 **GDAL-Based Architecture**: All operations powered by GDAL/OGR for maximum compatibility and performance
 - 📦 **Cross-Platform**: Runs on Windows, Linux, and macOS via .NET Standard 2.0
 - 🛠️ **Utility Classes**: Encoding detection, ZIP compression, natural sorting, and numeric formatting
 
@@ -101,12 +101,15 @@ double area = GeometryUtil.AreaWkt(wkt);
 double length = GeometryUtil.LengthWkt(wkt);
 
 // Topology validation
-var geom = GeometryUtil.Wkt2Geometry(wkt);
+var geom = GeometryUtil.Wkt2Geometry(wkt);  // Returns OSGeo.OGR.Geometry
 var validationResult = GeometryUtil.IsValid(geom);
 if (!validationResult.IsValid)
 {
     Console.WriteLine($"Geometry is invalid: {validationResult.ErrorMessage}");
 }
+
+// Note: Direct GeoJSON string parsing is not supported
+// Use WKT format or load GeoJSON from files using GdalReader
 ```
 
 #### GDAL Configuration
@@ -150,15 +153,12 @@ OpenGIS.Utils/
 
 ### Dependencies
 
-- **[NetTopologySuite](https://github.com/NetTopologySuite/NetTopologySuite)** 2.5.0 - Geometry model and operations
-- **[NetTopologySuite.IO.GeoJSON](https://www.nuget.org/packages/NetTopologySuite.IO.GeoJSON)** 4.0.0 - GeoJSON support
-- **[NetTopologySuite.IO.ShapeFile](https://www.nuget.org/packages/NetTopologySuite.IO.ShapeFile)** 2.1.0 - Shapefile support
-- **[MaxRev.Gdal.Core](https://github.com/MaxRev-Dev/gdal.netcore)** 3.9.2+ - GDAL/OGR bindings
-- **[MaxRev.Gdal.Universal](https://github.com/MaxRev-Dev/gdal.netcore)** 3.9.2+ - Cross-platform GDAL runtime
-- **[System.Text.Json](https://www.nuget.org/packages/System.Text.Json)** 8.0.5 - JSON serialization
-- **[System.Text.Encoding.CodePages](https://www.nuget.org/packages/System.Text.Encoding.CodePages)** 7.0.0 - Encoding support (GBK, GB2312)
+- **[MaxRev.Gdal.Core](https://github.com/MaxRev-Dev/gdal.netcore)** 3.12.0+ - GDAL/OGR bindings
+- **[MaxRev.Gdal.Universal](https://github.com/MaxRev-Dev/gdal.netcore)** 3.12.0+ - Cross-platform GDAL runtime
+- **[System.Text.Json](https://www.nuget.org/packages/System.Text.Json)** 10.0.0 - JSON serialization
+- **[System.Text.Encoding.CodePages](https://www.nuget.org/packages/System.Text.Encoding.CodePages)** 10.0.0 - Encoding support (GBK, GB2312)
 - **[SharpZipLib](https://github.com/icsharpcode/SharpZipLib)** 1.4.2 - ZIP compression
-- **[Microsoft.Extensions.Logging.Abstractions](https://www.nuget.org/packages/Microsoft.Extensions.Logging.Abstractions)** 7.0.0 - Logging
+- **[Microsoft.Extensions.Logging.Abstractions](https://www.nuget.org/packages/Microsoft.Extensions.Logging.Abstractions)** 10.0.0 - Logging
 
 ### Requirements
 
@@ -185,7 +185,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ### 项目概述
 
-**OpenGIS Utils for .NET** (OGU4Net) 是基于 [NetTopologySuite](https://github.com/NetTopologySuite/NetTopologySuite) 和 [MaxRev.Gdal.Universal](https://github.com/MaxRev-Dev/gdal.netcore) 的 .NET GIS 二次开发工具库。提供统一的图层模型和便捷的格式转换功能，简化 GIS 数据的读取、处理和导出操作。
+**OpenGIS Utils for .NET** (OGU4Net) 是基于 [MaxRev.Gdal.Universal](https://github.com/MaxRev-Dev/gdal.netcore) 的 .NET GIS 二次开发工具库。提供统一的图层模型和便捷的格式转换功能，简化 GIS 数据的读取、处理和导出操作。
 
 本项目是 [opengis-utils-for-java](https://github.com/znlgis/opengis-utils-for-java) 的完整 C# .NET Standard 2.0 移植版本。
 
@@ -195,7 +195,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 - 🔄 **格式转换**：Shapefile、GeoJSON、FileGDB、PostGIS、GeoPackage、KML、DXF、TXT 等格式无缝转换
 - 🌐 **坐标系支持**：基于 GDAL/OGR 的全面坐标系转换，内置 CGCS2000 支持
 - 📐 **几何处理**：丰富的空间操作，包括缓冲区、交集、并集、拓扑验证等
-- 🔧 **双引擎架构**：NetTopologySuite 用于轻量级操作，GDAL 用于企业级格式
+- 🔧 **GDAL 架构**：所有操作均由 GDAL/OGR 提供支持，确保最大兼容性和性能
 - 📦 **跨平台**：通过 .NET Standard 2.0 支持 Windows、Linux 和 macOS
 - 🛠️ **实用工具**：编码检测、ZIP 压缩、自然排序、数字格式化
 
@@ -278,12 +278,15 @@ double area = GeometryUtil.AreaWkt(wkt);
 double length = GeometryUtil.LengthWkt(wkt);
 
 // 拓扑验证
-var geom = GeometryUtil.Wkt2Geometry(wkt);
+var geom = GeometryUtil.Wkt2Geometry(wkt);  // 返回 OSGeo.OGR.Geometry
 var validationResult = GeometryUtil.IsValid(geom);
 if (!validationResult.IsValid)
 {
     Console.WriteLine($"几何对象无效: {validationResult.ErrorMessage}");
 }
+
+// 注意：不支持直接解析 GeoJSON 字符串
+// 请使用 WKT 格式或通过 GdalReader 从文件加载 GeoJSON
 ```
 
 #### GDAL 配置
@@ -327,15 +330,12 @@ OpenGIS.Utils/
 
 ### 依赖项
 
-- **[NetTopologySuite](https://github.com/NetTopologySuite/NetTopologySuite)** 2.5.0 - 几何模型和操作
-- **[NetTopologySuite.IO.GeoJSON](https://www.nuget.org/packages/NetTopologySuite.IO.GeoJSON)** 4.0.0 - GeoJSON 支持
-- **[NetTopologySuite.IO.ShapeFile](https://www.nuget.org/packages/NetTopologySuite.IO.ShapeFile)** 2.1.0 - Shapefile 支持
-- **[MaxRev.Gdal.Core](https://github.com/MaxRev-Dev/gdal.netcore)** 3.9.2+ - GDAL/OGR 绑定
-- **[MaxRev.Gdal.Universal](https://github.com/MaxRev-Dev/gdal.netcore)** 3.9.2+ - 跨平台 GDAL 运行时
-- **[System.Text.Json](https://www.nuget.org/packages/System.Text.Json)** 8.0.5 - JSON 序列化
-- **[System.Text.Encoding.CodePages](https://www.nuget.org/packages/System.Text.Encoding.CodePages)** 7.0.0 - 编码支持（GBK、GB2312）
+- **[MaxRev.Gdal.Core](https://github.com/MaxRev-Dev/gdal.netcore)** 3.12.0+ - GDAL/OGR 绑定
+- **[MaxRev.Gdal.Universal](https://github.com/MaxRev-Dev/gdal.netcore)** 3.12.0+ - 跨平台 GDAL 运行时
+- **[System.Text.Json](https://www.nuget.org/packages/System.Text.Json)** 10.0.0 - JSON 序列化
+- **[System.Text.Encoding.CodePages](https://www.nuget.org/packages/System.Text.Encoding.CodePages)** 10.0.0 - 编码支持（GBK、GB2312）
 - **[SharpZipLib](https://github.com/icsharpcode/SharpZipLib)** 1.4.2 - ZIP 压缩
-- **[Microsoft.Extensions.Logging.Abstractions](https://www.nuget.org/packages/Microsoft.Extensions.Logging.Abstractions)** 7.0.0 - 日志
+- **[Microsoft.Extensions.Logging.Abstractions](https://www.nuget.org/packages/Microsoft.Extensions.Logging.Abstractions)** 10.0.0 - 日志
 
 ### 环境要求
 

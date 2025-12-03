@@ -1,5 +1,4 @@
 using System;
-using NetTopologySuite.Geometries;
 
 namespace OpenGIS.Utils.Engine.Model.Layer;
 
@@ -76,27 +75,6 @@ public class OguCoordinate
         }
 
         if (coords.Length >= 3) result.Z = double.Parse(coords[2]);
-
-        return result;
-    }
-
-    /// <summary>
-    ///     转换为 NetTopologySuite Coordinate
-    /// </summary>
-    public Coordinate ToNetTopologySuiteCoordinate()
-    {
-        if (Z.HasValue) return new CoordinateZ(X, Y, Z.Value);
-        return new Coordinate(X, Y);
-    }
-
-    /// <summary>
-    ///     从 NetTopologySuite Coordinate 创建
-    /// </summary>
-    public static OguCoordinate FromNetTopologySuiteCoordinate(Coordinate coordinate)
-    {
-        var result = new OguCoordinate { X = coordinate.X, Y = coordinate.Y };
-
-        if (!double.IsNaN(coordinate.Z)) result.Z = coordinate.Z;
 
         return result;
     }

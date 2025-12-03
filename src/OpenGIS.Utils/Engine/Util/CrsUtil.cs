@@ -1,8 +1,7 @@
 using System;
-using NetTopologySuite.IO;
 using OpenGIS.Utils.Configuration;
 using OSGeo.OSR;
-using NtsGeometry = NetTopologySuite.Geometries.Geometry;
+using OgrGeometry = OSGeo.OGR.Geometry;
 using SysException = System.Exception;
 
 namespace OpenGIS.Utils.Engine.Util;
@@ -54,7 +53,7 @@ public static class CrsUtil
     /// <summary>
     ///     坐标转换（Geometry）
     /// </summary>
-    public static NtsGeometry Transform(NtsGeometry geometry, int sourceWkid, int targetWkid)
+    public static OgrGeometry Transform(OgrGeometry geometry, int sourceWkid, int targetWkid)
     {
         if (geometry == null)
             throw new ArgumentNullException(nameof(geometry));
@@ -62,24 +61,28 @@ public static class CrsUtil
         if (sourceWkid == targetWkid)
             return geometry;
 
-        // 将 NTS Geometry 转为 WKT，进行转换，再转回来
-        var wkt = geometry.AsText();
+        // 将 Geometry 转为 WKT，进行转换，再转回来
+        geometry.ExportToWkt(out string wkt);
         var transformedWkt = Transform(wkt, sourceWkid, targetWkid);
 
-        var wktReader = new WKTReader();
-        return wktReader.Read(transformedWkt);
+        return OgrGeometry.CreateFromWkt(transformedWkt);
     }
 
     /// <summary>
     ///     获取带号
     /// </summary>
-    public static int GetDh(NtsGeometry geometry)
+    public static int GetDh(OgrGeometry geometry)
     {
         if (geometry == null)
             throw new ArgumentNullException(nameof(geometry));
 
-        var centroid = geometry.Centroid;
-        return GetDh(centroid.X);
+        var centroid = geometry.Centroid();
+        if (centroid == null || centroid.IsEmpty())
+            throw new ArgumentException("Failed to calculate centroid", nameof(geometry));
+            
+        double longitude = centroid.GetX(0);
+        centroid.Dispose();
+        return GetDh(longitude);
     }
 
     /// <summary>

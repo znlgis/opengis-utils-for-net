@@ -1,70 +1,87 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using NetTopologySuite.Densify;
-using NetTopologySuite.IO;
-using NetTopologySuite.Operation.Valid;
-using NetTopologySuite.Simplify;
+using System.Text.Json;
+using OpenGIS.Utils.Configuration;
 using OpenGIS.Utils.Engine.Model;
+using OSGeo.OGR;
 using OguGeometryType = OpenGIS.Utils.Engine.Enums.GeometryType;
 using OguTopologyErrorType = OpenGIS.Utils.Engine.Enums.TopologyValidationErrorType;
+using OgrGeometry = OSGeo.OGR.Geometry;
 
 namespace OpenGIS.Utils.Geometry;
 
 /// <summary>
-///     几何处理工具类
+///     几何处理工具类（基于 GDAL/OGR）
 /// </summary>
 public static class GeometryUtil
 {
-    private static readonly WKTReader _wktReader = new();
-    private static readonly WKTWriter _wktWriter = new();
-    private static readonly GeoJsonReader _geoJsonReader = new();
-    private static readonly GeoJsonWriter _geoJsonWriter = new();
+    static GeometryUtil()
+    {
+        // 确保 GDAL 已初始化
+        GdalConfiguration.ConfigureGdal();
+    }
 
     #region Format Conversions
 
     /// <summary>
     ///     WKT 转 Geometry
     /// </summary>
-    public static NetTopologySuite.Geometries.Geometry Wkt2Geometry(string wkt)
+    public static OgrGeometry Wkt2Geometry(string wkt)
     {
         if (string.IsNullOrWhiteSpace(wkt))
             throw new ArgumentException("WKT cannot be null or empty", nameof(wkt));
 
-        return _wktReader.Read(wkt);
+        var geom = OgrGeometry.CreateFromWkt(wkt);
+        if (geom == null)
+            throw new ArgumentException("Invalid WKT format", nameof(wkt));
+        
+        return geom;
     }
 
     /// <summary>
     ///     Geometry 转 WKT
     /// </summary>
-    public static string Geometry2Wkt(NetTopologySuite.Geometries.Geometry geom)
+    public static string Geometry2Wkt(OgrGeometry geom)
     {
         if (geom == null)
             throw new ArgumentNullException(nameof(geom));
 
-        return _wktWriter.Write(geom);
+        geom.ExportToWkt(out string wkt);
+        return wkt;
     }
 
     /// <summary>
     ///     GeoJSON 转 Geometry
     /// </summary>
-    public static NetTopologySuite.Geometries.Geometry Geojson2Geometry(string geojson)
+    /// <remarks>
+    ///     GDAL/OGR doesn't support direct GeoJSON string parsing.
+    ///     This is a breaking change from the NetTopologySuite implementation.
+    ///     Users should either use WKT format or load GeoJSON from files.
+    /// </remarks>
+    public static OgrGeometry Geojson2Geometry(string geojson)
     {
         if (string.IsNullOrWhiteSpace(geojson))
             throw new ArgumentException("GeoJSON cannot be null or empty", nameof(geojson));
 
-        return _geoJsonReader.Read<NetTopologySuite.Geometries.Geometry>(geojson);
+        // GDAL/OGR doesn't support direct GeoJSON string parsing
+        // Users should either:
+        // 1. Use WKT format with Wkt2Geometry()
+        // 2. Load GeoJSON from file using GdalReader
+        throw new NotSupportedException(
+            "Direct GeoJSON string parsing is not supported by GDAL/OGR. " +
+            "Please use Wkt2Geometry() for WKT format, or load GeoJSON from a file using GdalReader.");
     }
 
     /// <summary>
     ///     Geometry 转 GeoJSON
     /// </summary>
-    public static string Geometry2Geojson(NetTopologySuite.Geometries.Geometry geom)
+    public static string Geometry2Geojson(OgrGeometry geom)
     {
         if (geom == null)
             throw new ArgumentNullException(nameof(geom));
 
-        return _geoJsonWriter.Write(geom);
+        return geom.ExportToJson(null);
     }
 
     /// <summary>
@@ -92,7 +109,7 @@ public static class GeometryUtil
     /// <summary>
     ///     判断两个几何对象是否相交
     /// </summary>
-    public static bool Intersects(NetTopologySuite.Geometries.Geometry a, NetTopologySuite.Geometries.Geometry b)
+    public static bool Intersects(OgrGeometry a, OgrGeometry b)
     {
         if (a == null || b == null) return false;
         return a.Intersects(b);
@@ -101,7 +118,7 @@ public static class GeometryUtil
     /// <summary>
     ///     判断 a 是否包含 b
     /// </summary>
-    public static bool Contains(NetTopologySuite.Geometries.Geometry a, NetTopologySuite.Geometries.Geometry b)
+    public static bool Contains(OgrGeometry a, OgrGeometry b)
     {
         if (a == null || b == null) return false;
         return a.Contains(b);
@@ -110,7 +127,7 @@ public static class GeometryUtil
     /// <summary>
     ///     判断 a 是否在 b 内部
     /// </summary>
-    public static bool Within(NetTopologySuite.Geometries.Geometry a, NetTopologySuite.Geometries.Geometry b)
+    public static bool Within(OgrGeometry a, OgrGeometry b)
     {
         if (a == null || b == null) return false;
         return a.Within(b);
@@ -119,7 +136,7 @@ public static class GeometryUtil
     /// <summary>
     ///     判断两个几何对象是否接触
     /// </summary>
-    public static bool Touches(NetTopologySuite.Geometries.Geometry a, NetTopologySuite.Geometries.Geometry b)
+    public static bool Touches(OgrGeometry a, OgrGeometry b)
     {
         if (a == null || b == null) return false;
         return a.Touches(b);
@@ -128,7 +145,7 @@ public static class GeometryUtil
     /// <summary>
     ///     判断两个几何对象是否交叉
     /// </summary>
-    public static bool Crosses(NetTopologySuite.Geometries.Geometry a, NetTopologySuite.Geometries.Geometry b)
+    public static bool Crosses(OgrGeometry a, OgrGeometry b)
     {
         if (a == null || b == null) return false;
         return a.Crosses(b);
@@ -137,7 +154,7 @@ public static class GeometryUtil
     /// <summary>
     ///     判断两个几何对象是否重叠
     /// </summary>
-    public static bool Overlaps(NetTopologySuite.Geometries.Geometry a, NetTopologySuite.Geometries.Geometry b)
+    public static bool Overlaps(OgrGeometry a, OgrGeometry b)
     {
         if (a == null || b == null) return false;
         return a.Overlaps(b);
@@ -146,7 +163,7 @@ public static class GeometryUtil
     /// <summary>
     ///     判断两个几何对象是否不相交
     /// </summary>
-    public static bool Disjoint(NetTopologySuite.Geometries.Geometry a, NetTopologySuite.Geometries.Geometry b)
+    public static bool Disjoint(OgrGeometry a, OgrGeometry b)
     {
         if (a == null || b == null) return true;
         return a.Disjoint(b);
@@ -159,20 +176,18 @@ public static class GeometryUtil
     /// <summary>
     ///     缓冲区分析
     /// </summary>
-    public static NetTopologySuite.Geometries.Geometry Buffer(NetTopologySuite.Geometries.Geometry geom,
-        double distance)
+    public static OgrGeometry Buffer(OgrGeometry geom, double distance)
     {
         if (geom == null)
             throw new ArgumentNullException(nameof(geom));
 
-        return geom.Buffer(distance);
+        return geom.Buffer(distance, 30);
     }
 
     /// <summary>
     ///     交集
     /// </summary>
-    public static NetTopologySuite.Geometries.Geometry Intersection(NetTopologySuite.Geometries.Geometry a,
-        NetTopologySuite.Geometries.Geometry b)
+    public static OgrGeometry Intersection(OgrGeometry a, OgrGeometry b)
     {
         if (a == null || b == null)
             throw new ArgumentNullException(a == null ? nameof(a) : nameof(b));
@@ -183,8 +198,7 @@ public static class GeometryUtil
     /// <summary>
     ///     并集
     /// </summary>
-    public static NetTopologySuite.Geometries.Geometry Union(NetTopologySuite.Geometries.Geometry a,
-        NetTopologySuite.Geometries.Geometry b)
+    public static OgrGeometry Union(OgrGeometry a, OgrGeometry b)
     {
         if (a == null || b == null)
             throw new ArgumentNullException(a == null ? nameof(a) : nameof(b));
@@ -195,26 +209,30 @@ public static class GeometryUtil
     /// <summary>
     ///     多个几何对象合并
     /// </summary>
-    public static NetTopologySuite.Geometries.Geometry Union(
-        IEnumerable<NetTopologySuite.Geometries.Geometry> geometries)
+    public static OgrGeometry Union(IEnumerable<OgrGeometry> geometries)
     {
         if (geometries == null)
             throw new ArgumentNullException(nameof(geometries));
 
-        List<NetTopologySuite.Geometries.Geometry> geomList = geometries.ToList();
+        List<OgrGeometry> geomList = geometries.ToList();
         if (geomList.Count == 0)
             throw new ArgumentException("Geometry list cannot be empty", nameof(geometries));
 
-        var factory = geomList[0].Factory;
-        var collection = factory.CreateGeometryCollection(geomList.ToArray());
-        return collection.Union();
+        if (geomList.Count == 1)
+            return geomList[0];
+
+        OgrGeometry result = geomList[0];
+        for (int i = 1; i < geomList.Count; i++)
+        {
+            result = result.Union(geomList[i]);
+        }
+        return result;
     }
 
     /// <summary>
     ///     差集
     /// </summary>
-    public static NetTopologySuite.Geometries.Geometry Difference(NetTopologySuite.Geometries.Geometry a,
-        NetTopologySuite.Geometries.Geometry b)
+    public static OgrGeometry Difference(OgrGeometry a, OgrGeometry b)
     {
         if (a == null || b == null)
             throw new ArgumentNullException(a == null ? nameof(a) : nameof(b));
@@ -225,8 +243,7 @@ public static class GeometryUtil
     /// <summary>
     ///     对称差集
     /// </summary>
-    public static NetTopologySuite.Geometries.Geometry SymDifference(NetTopologySuite.Geometries.Geometry a,
-        NetTopologySuite.Geometries.Geometry b)
+    public static OgrGeometry SymDifference(OgrGeometry a, OgrGeometry b)
     {
         if (a == null || b == null)
             throw new ArgumentNullException(a == null ? nameof(a) : nameof(b));
@@ -241,86 +258,87 @@ public static class GeometryUtil
     /// <summary>
     ///     计算面积
     /// </summary>
-    public static double Area(NetTopologySuite.Geometries.Geometry geom)
+    public static double Area(OgrGeometry geom)
     {
         if (geom == null)
             throw new ArgumentNullException(nameof(geom));
 
-        return geom.Area;
+        return geom.Area();
     }
 
     /// <summary>
     ///     计算长度
     /// </summary>
-    public static double Length(NetTopologySuite.Geometries.Geometry geom)
+    public static double Length(OgrGeometry geom)
     {
         if (geom == null)
             throw new ArgumentNullException(nameof(geom));
 
-        return geom.Length;
+        return geom.Length();
     }
 
     /// <summary>
     ///     获取质心
     /// </summary>
-    public static NetTopologySuite.Geometries.Geometry Centroid(NetTopologySuite.Geometries.Geometry geom)
+    public static OgrGeometry Centroid(OgrGeometry geom)
     {
         if (geom == null)
             throw new ArgumentNullException(nameof(geom));
 
-        return geom.Centroid;
+        return geom.Centroid();
     }
 
     /// <summary>
     ///     获取内部点
     /// </summary>
-    public static NetTopologySuite.Geometries.Geometry InteriorPoint(NetTopologySuite.Geometries.Geometry geom)
+    public static OgrGeometry InteriorPoint(OgrGeometry geom)
     {
         if (geom == null)
             throw new ArgumentNullException(nameof(geom));
 
-        return geom.InteriorPoint;
+        return geom.PointOnSurface();
     }
 
     /// <summary>
     ///     获取几何维度
     /// </summary>
-    public static int Dimension(NetTopologySuite.Geometries.Geometry geom)
+    public static int Dimension(OgrGeometry geom)
     {
         if (geom == null)
             throw new ArgumentNullException(nameof(geom));
 
-        return (int)geom.Dimension;
+        return geom.GetDimension();
     }
 
     /// <summary>
     ///     获取点数量
     /// </summary>
-    public static int NumPoints(NetTopologySuite.Geometries.Geometry geom)
+    public static int NumPoints(OgrGeometry geom)
     {
         if (geom == null)
             throw new ArgumentNullException(nameof(geom));
 
-        return geom.NumPoints;
+        return geom.GetPointCount();
     }
 
     /// <summary>
     ///     获取几何类型
     /// </summary>
-    public static OguGeometryType GetGeometryType(NetTopologySuite.Geometries.Geometry geom)
+    public static OguGeometryType GetGeometryType(OgrGeometry geom)
     {
         if (geom == null)
             throw new ArgumentNullException(nameof(geom));
 
-        return geom.GeometryType.ToUpper() switch
+        var geometryType = geom.GetGeometryType();
+        return geometryType switch
         {
-            "POINT" => OguGeometryType.POINT,
-            "LINESTRING" => OguGeometryType.LINESTRING,
-            "POLYGON" => OguGeometryType.POLYGON,
-            "MULTIPOINT" => OguGeometryType.MULTIPOINT,
-            "MULTILINESTRING" => OguGeometryType.MULTILINESTRING,
-            "MULTIPOLYGON" => OguGeometryType.MULTIPOLYGON,
-            "GEOMETRYCOLLECTION" => OguGeometryType.GEOMETRYCOLLECTION,
+            wkbGeometryType.wkbPoint or wkbGeometryType.wkbPoint25D or wkbGeometryType.wkbPointM or wkbGeometryType.wkbPointZM => OguGeometryType.POINT,
+            wkbGeometryType.wkbLineString or wkbGeometryType.wkbLineString25D or wkbGeometryType.wkbLineStringM or wkbGeometryType.wkbLineStringZM => OguGeometryType.LINESTRING,
+            wkbGeometryType.wkbPolygon or wkbGeometryType.wkbPolygon25D or wkbGeometryType.wkbPolygonM or wkbGeometryType.wkbPolygonZM => OguGeometryType.POLYGON,
+            wkbGeometryType.wkbMultiPoint or wkbGeometryType.wkbMultiPoint25D or wkbGeometryType.wkbMultiPointM or wkbGeometryType.wkbMultiPointZM => OguGeometryType.MULTIPOINT,
+            wkbGeometryType.wkbMultiLineString or wkbGeometryType.wkbMultiLineString25D or wkbGeometryType.wkbMultiLineStringM or wkbGeometryType.wkbMultiLineStringZM => OguGeometryType.MULTILINESTRING,
+            wkbGeometryType.wkbMultiPolygon or wkbGeometryType.wkbMultiPolygon25D or wkbGeometryType.wkbMultiPolygonM or wkbGeometryType.wkbMultiPolygonZM => OguGeometryType.MULTIPOLYGON,
+            wkbGeometryType.wkbGeometryCollection or wkbGeometryType.wkbGeometryCollection25D or wkbGeometryType.wkbGeometryCollectionM or wkbGeometryType.wkbGeometryCollectionZM => OguGeometryType.GEOMETRYCOLLECTION,
             _ => OguGeometryType.UNKNOWN
         };
     }
@@ -328,10 +346,10 @@ public static class GeometryUtil
     /// <summary>
     ///     判断是否为空几何
     /// </summary>
-    public static bool IsEmpty(NetTopologySuite.Geometries.Geometry geom)
+    public static bool IsEmpty(OgrGeometry geom)
     {
         if (geom == null) return true;
-        return geom.IsEmpty;
+        return geom.IsEmpty();
     }
 
     #endregion
@@ -341,29 +359,43 @@ public static class GeometryUtil
     /// <summary>
     ///     获取边界
     /// </summary>
-    public static NetTopologySuite.Geometries.Geometry Boundary(NetTopologySuite.Geometries.Geometry geom)
+    public static OgrGeometry Boundary(OgrGeometry geom)
     {
         if (geom == null)
             throw new ArgumentNullException(nameof(geom));
 
-        return geom.Boundary;
+        return geom.Boundary();
     }
 
     /// <summary>
     ///     获取外包矩形
     /// </summary>
-    public static NetTopologySuite.Geometries.Geometry Envelope(NetTopologySuite.Geometries.Geometry geom)
+    public static OgrGeometry Envelope(OgrGeometry geom)
     {
         if (geom == null)
             throw new ArgumentNullException(nameof(geom));
 
-        return geom.Envelope;
+        var envelope = new OSGeo.OGR.Envelope();
+        geom.GetEnvelope(envelope);
+        
+        // Create a polygon from the envelope
+        var ring = new OgrGeometry(wkbGeometryType.wkbLinearRing);
+        ring.AddPoint_2D(envelope.MinX, envelope.MinY);
+        ring.AddPoint_2D(envelope.MaxX, envelope.MinY);
+        ring.AddPoint_2D(envelope.MaxX, envelope.MaxY);
+        ring.AddPoint_2D(envelope.MinX, envelope.MaxY);
+        ring.AddPoint_2D(envelope.MinX, envelope.MinY);
+        
+        var polygon = new OgrGeometry(wkbGeometryType.wkbPolygon);
+        polygon.AddGeometry(ring);
+        
+        return polygon;
     }
 
     /// <summary>
     ///     凸包
     /// </summary>
-    public static NetTopologySuite.Geometries.Geometry ConvexHull(NetTopologySuite.Geometries.Geometry geom)
+    public static OgrGeometry ConvexHull(OgrGeometry geom)
     {
         if (geom == null)
             throw new ArgumentNullException(nameof(geom));
@@ -374,25 +406,26 @@ public static class GeometryUtil
     /// <summary>
     ///     简化几何
     /// </summary>
-    public static NetTopologySuite.Geometries.Geometry Simplify(NetTopologySuite.Geometries.Geometry geom,
-        double tolerance)
+    public static OgrGeometry Simplify(OgrGeometry geom, double tolerance)
     {
         if (geom == null)
             throw new ArgumentNullException(nameof(geom));
 
-        return DouglasPeuckerSimplifier.Simplify(geom, tolerance);
+        return geom.Simplify(tolerance);
     }
 
     /// <summary>
     ///     密化几何（增加顶点）
     /// </summary>
-    public static NetTopologySuite.Geometries.Geometry Densify(NetTopologySuite.Geometries.Geometry geom,
-        double distanceTolerance)
+    public static OgrGeometry Densify(OgrGeometry geom, double distanceTolerance)
     {
         if (geom == null)
             throw new ArgumentNullException(nameof(geom));
 
-        return Densifier.Densify(geom, distanceTolerance);
+        // OGR's Segmentize modifies the geometry in place, so clone first
+        var cloned = geom.Clone();
+        cloned.Segmentize(distanceTolerance);
+        return cloned;
     }
 
     #endregion
@@ -402,26 +435,22 @@ public static class GeometryUtil
     /// <summary>
     ///     验证几何有效性
     /// </summary>
-    public static TopologyValidationResult IsValid(NetTopologySuite.Geometries.Geometry geom)
+    /// <remarks>
+    ///     Note: GDAL/OGR provides less detailed validation error information
+    ///     compared to NetTopologySuite. Error types and locations are not
+    ///     available in this implementation.
+    /// </remarks>
+    public static TopologyValidationResult IsValid(OgrGeometry geom)
     {
         if (geom == null)
             throw new ArgumentNullException(nameof(geom));
 
-        var result = new TopologyValidationResult { IsValid = geom.IsValid };
+        var result = new TopologyValidationResult { IsValid = geom.IsValid() };
 
         if (!result.IsValid)
         {
-            var validator = new IsValidOp(geom);
-            var error = validator.ValidationError;
-
-            if (error != null)
-            {
-                result.ErrorMessage = error.Message;
-                result.ErrorLocation = error.Coordinate != null
-                    ? $"POINT ({error.Coordinate.X} {error.Coordinate.Y})"
-                    : null;
-                result.ErrorType = MapTopologyErrorType(error.ErrorType);
-            }
+            result.ErrorMessage = "Geometry is not valid (detailed error information not available in GDAL)";
+            result.ErrorType = OguTopologyErrorType.ERROR;
         }
 
         return result;
@@ -430,47 +459,16 @@ public static class GeometryUtil
     /// <summary>
     ///     判断是否为简单几何
     /// </summary>
-    public static SimpleGeometryResult IsSimple(NetTopologySuite.Geometries.Geometry geom)
+    public static SimpleGeometryResult IsSimple(OgrGeometry geom)
     {
         if (geom == null)
             throw new ArgumentNullException(nameof(geom));
 
-        var result = new SimpleGeometryResult { IsSimple = geom.IsSimple };
+        var result = new SimpleGeometryResult { IsSimple = geom.IsSimple() };
 
         if (!result.IsSimple) result.Reason = "Geometry has self-intersections or other complexity";
 
         return result;
-    }
-
-    private static OguTopologyErrorType MapTopologyErrorType(TopologyValidationErrors errorType)
-    {
-        // Simplified mapping since NTS enum values may differ across versions
-        var errorName = errorType.ToString();
-
-        if (errorName.Contains("Hole") && errorName.Contains("Shell"))
-            return OguTopologyErrorType.HOLE_OUTSIDE_SHELL;
-        if (errorName.Contains("Nested") && errorName.Contains("Hole"))
-            return OguTopologyErrorType.NESTED_HOLES;
-        if (errorName.Contains("Disconnected"))
-            return OguTopologyErrorType.DISCONNECTED_INTERIOR;
-        if (errorName.Contains("SelfIntersection"))
-            return OguTopologyErrorType.SELF_INTERSECTION;
-        if (errorName.Contains("Ring") && errorName.Contains("SelfIntersection"))
-            return OguTopologyErrorType.RING_SELF_INTERSECTION;
-        if (errorName.Contains("Nested") && errorName.Contains("Shell"))
-            return OguTopologyErrorType.NESTED_SHELLS;
-        if (errorName.Contains("Duplicate") && errorName.Contains("Ring"))
-            return OguTopologyErrorType.DUPLICATE_RINGS;
-        if (errorName.Contains("TooFew") || errorName.Contains("Few"))
-            return OguTopologyErrorType.TOO_FEW_POINTS;
-        if (errorName.Contains("InvalidCoordinate"))
-            return OguTopologyErrorType.INVALID_COORDINATE;
-        if (errorName.Contains("Closed") || errorName.Contains("NotClosed"))
-            return OguTopologyErrorType.RING_NOT_CLOSED;
-        if (errorName.Contains("Repeated"))
-            return OguTopologyErrorType.REPEATED_POINT;
-
-        return OguTopologyErrorType.ERROR;
     }
 
     #endregion
@@ -480,32 +478,38 @@ public static class GeometryUtil
     /// <summary>
     ///     精确比较（坐标完全相同）
     /// </summary>
-    public static bool EqualsExact(NetTopologySuite.Geometries.Geometry a, NetTopologySuite.Geometries.Geometry b)
+    public static bool EqualsExact(OgrGeometry a, OgrGeometry b)
     {
         if (a == null && b == null) return true;
         if (a == null || b == null) return false;
-        return a.EqualsExact(b);
+        return a.Equals(b);
     }
 
     /// <summary>
     ///     精确比较（带容差）
     /// </summary>
-    public static bool EqualsExactTolerance(NetTopologySuite.Geometries.Geometry a,
-        NetTopologySuite.Geometries.Geometry b, double tolerance)
+    /// <remarks>
+    ///     Note: OGR doesn't have direct tolerance-based geometry comparison.
+    ///     This implementation uses distance as an approximation, which may differ
+    ///     from NetTopologySuite's original behavior.
+    /// </remarks>
+    public static bool EqualsExactTolerance(OgrGeometry a, OgrGeometry b, double tolerance)
     {
         if (a == null && b == null) return true;
         if (a == null || b == null) return false;
-        return a.EqualsExact(b, tolerance);
+        
+        // Check if geometries are within the tolerance distance
+        return a.Distance(b) <= tolerance;
     }
 
     /// <summary>
     ///     拓扑相等
     /// </summary>
-    public static bool EqualsTopo(NetTopologySuite.Geometries.Geometry a, NetTopologySuite.Geometries.Geometry b)
+    public static bool EqualsTopo(OgrGeometry a, OgrGeometry b)
     {
         if (a == null && b == null) return true;
         if (a == null || b == null) return false;
-        return a.EqualsTopologically(b);
+        return a.Equals(b);
     }
 
     #endregion
@@ -515,7 +519,7 @@ public static class GeometryUtil
     /// <summary>
     ///     计算两个几何对象之间的距离
     /// </summary>
-    public static double Distance(NetTopologySuite.Geometries.Geometry a, NetTopologySuite.Geometries.Geometry b)
+    public static double Distance(OgrGeometry a, OgrGeometry b)
     {
         if (a == null || b == null)
             throw new ArgumentNullException(a == null ? nameof(a) : nameof(b));
@@ -526,11 +530,10 @@ public static class GeometryUtil
     /// <summary>
     ///     判断两个几何对象之间的距离是否在指定范围内
     /// </summary>
-    public static bool IsWithinDistance(NetTopologySuite.Geometries.Geometry a, NetTopologySuite.Geometries.Geometry b,
-        double maxDistance)
+    public static bool IsWithinDistance(OgrGeometry a, OgrGeometry b, double maxDistance)
     {
         if (a == null || b == null) return false;
-        return a.IsWithinDistance(b, maxDistance);
+        return a.Distance(b) <= maxDistance;
     }
 
     #endregion

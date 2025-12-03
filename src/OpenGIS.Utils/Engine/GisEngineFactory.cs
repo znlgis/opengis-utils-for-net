@@ -15,7 +15,7 @@ public static class GisEngineFactory
     {
         return engineType switch
         {
-            GisEngineType.GEOTOOLS => new GeoToolsEngine(),
+            GisEngineType.GEOTOOLS => new GdalEngine(), // GeoTools now redirects to GDAL
             GisEngineType.GDAL => new GdalEngine(),
             _ => throw new EngineNotSupportedException($"Engine type {engineType} is not supported")
         };
@@ -26,18 +26,8 @@ public static class GisEngineFactory
     /// </summary>
     public static GisEngine GetEngine(DataFormatType format)
     {
-        return format switch
-        {
-            DataFormatType.SHP => new GeoToolsEngine(),
-            DataFormatType.GEOJSON => new GeoToolsEngine(),
-            DataFormatType.POSTGIS => new GeoToolsEngine(),
-            DataFormatType.FILEGDB => new GdalEngine(),
-            DataFormatType.GEOPACKAGE => new GdalEngine(),
-            DataFormatType.KML => new GdalEngine(),
-            DataFormatType.DXF => new GdalEngine(),
-            DataFormatType.TXT => new GeoToolsEngine(),
-            _ => throw new EngineNotSupportedException($"No engine available for format {format}")
-        };
+        // All formats now use GDAL
+        return new GdalEngine();
     }
 
     /// <summary>
