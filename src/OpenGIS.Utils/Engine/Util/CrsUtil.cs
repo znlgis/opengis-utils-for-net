@@ -20,6 +20,13 @@ public static class CrsUtil
     /// <returns>转换后的 WKT 字符串</returns>
     /// <exception cref="ArgumentException">当 WKT 为空或无效时抛出</exception>
     /// <exception cref="SysException">当坐标转换失败时抛出</exception>
+    /// <example>
+    /// <code>
+    /// // WGS84 (4326) 转 CGCS2000 (4490)
+    /// var wkt = "POINT (116.404 39.915)";
+    /// var transformed = CrsUtil.Transform(wkt, 4326, 4490);
+    /// </code>
+    /// </example>
     public static string Transform(string wkt, int sourceWkid, int targetWkid)
     {
         if (string.IsNullOrWhiteSpace(wkt))

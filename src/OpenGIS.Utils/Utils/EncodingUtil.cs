@@ -22,6 +22,12 @@ public static class EncodingUtil
     /// <param name="filePath">文件路径</param>
     /// <returns>检测到的编码</returns>
     /// <exception cref="FileNotFoundException">当文件不存在时抛出</exception>
+    /// <example>
+    /// <code>
+    /// var encoding = EncodingUtil.GetFileEncoding("data.txt");
+    /// var content = File.ReadAllText("data.txt", encoding);
+    /// </code>
+    /// </example>
     public static Encoding GetFileEncoding(string filePath)
     {
         if (!File.Exists(filePath))

@@ -25,6 +25,13 @@ public class GdalWriter : ILayerWriter
     /// <summary>
     ///     写入图层
     /// </summary>
+    /// <param name="layer">图层对象</param>
+    /// <param name="path">输出路径</param>
+    /// <param name="layerName">图层名称，如果为 null 则使用图层的 Name 属性</param>
+    /// <param name="options">附加选项字典，可以包含驱动名称、编码等</param>
+    /// <exception cref="ArgumentNullException">当图层为 null 时抛出</exception>
+    /// <exception cref="ArgumentException">当路径为空时抛出</exception>
+    /// <exception cref="SysException">当驱动不可用或创建数据源失败时抛出</exception>
     public void Write(OguLayer layer, string path, string? layerName = null, Dictionary<string, object>? options = null)
     {
         if (layer == null)
@@ -138,6 +145,11 @@ public class GdalWriter : ILayerWriter
     /// <summary>
     ///     追加要素到已存在的图层
     /// </summary>
+    /// <param name="layer">图层对象</param>
+    /// <param name="path">输出路径</param>
+    /// <param name="layerName">图层名称</param>
+    /// <param name="options">附加选项</param>
+    /// <exception cref="NotImplementedException">此功能尚未实现</exception>
     public void Append(OguLayer layer, string path, string? layerName = null,
         Dictionary<string, object>? options = null)
     {

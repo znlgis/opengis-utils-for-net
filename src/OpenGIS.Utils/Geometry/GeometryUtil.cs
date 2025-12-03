@@ -29,6 +29,12 @@ public static class GeometryUtil
     /// <param name="wkt">WKT 格式的几何字符串</param>
     /// <returns>OGR 几何对象</returns>
     /// <exception cref="ArgumentException">当 WKT 为空或格式无效时抛出</exception>
+    /// <example>
+    /// <code>
+    /// var wkt = "POINT (116.404 39.915)";
+    /// var geom = GeometryUtil.Wkt2Geometry(wkt);
+    /// </code>
+    /// </example>
     public static OgrGeometry Wkt2Geometry(string wkt)
     {
         if (string.IsNullOrWhiteSpace(wkt))
@@ -202,6 +208,15 @@ public static class GeometryUtil
     /// <param name="distance">缓冲距离（单位与坐标系一致）</param>
     /// <returns>缓冲后的几何对象</returns>
     /// <exception cref="ArgumentNullException">当几何对象为 null 时抛出</exception>
+    /// <example>
+    /// <code>
+    /// var wkt = "POINT (0 0)";
+    /// var geom = GeometryUtil.Wkt2Geometry(wkt);
+    /// var buffered = GeometryUtil.Buffer(geom, 10.0);
+    /// // 或者直接使用 WKT 方法
+    /// var bufferedWkt = GeometryUtil.BufferWkt(wkt, 10.0);
+    /// </code>
+    /// </example>
     public static OgrGeometry Buffer(OgrGeometry geom, double distance)
     {
         if (geom == null)
