@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using OpenGIS.Utils.Engine;
 using OpenGIS.Utils.Engine.Enums;
 using OpenGIS.Utils.Engine.Model.Layer;
 
@@ -26,8 +27,14 @@ namespace OpenGIS.Utils.DataSource
             if (string.IsNullOrWhiteSpace(path))
                 throw new ArgumentException("Path cannot be null or empty", nameof(path));
 
-            // TODO: Implement unified layer reading
-            throw new NotImplementedException("OguLayerUtil.ReadLayer is not yet implemented");
+            // 获取引擎
+            var engine = engineType.HasValue 
+                ? GisEngineFactory.GetEngine(engineType.Value)
+                : GisEngineFactory.GetEngine(format);
+
+            // 创建读取器并读取图层
+            var reader = engine.CreateReader();
+            return reader.Read(path, layerName, attributeFilter, spatialFilterWkt, options);
         }
 
         /// <summary>
@@ -61,8 +68,14 @@ namespace OpenGIS.Utils.DataSource
             if (string.IsNullOrWhiteSpace(path))
                 throw new ArgumentException("Path cannot be null or empty", nameof(path));
 
-            // TODO: Implement unified layer writing
-            throw new NotImplementedException("OguLayerUtil.WriteLayer is not yet implemented");
+            // 获取引擎
+            var engine = engineType.HasValue 
+                ? GisEngineFactory.GetEngine(engineType.Value)
+                : GisEngineFactory.GetEngine(format);
+
+            // 创建写入器并写入图层
+            var writer = engine.CreateWriter();
+            writer.Write(layer, path, layerName, options);
         }
 
         /// <summary>
@@ -87,8 +100,12 @@ namespace OpenGIS.Utils.DataSource
             if (string.IsNullOrWhiteSpace(path))
                 throw new ArgumentException("Path cannot be null or empty", nameof(path));
 
-            // TODO: Implement layer name enumeration
-            throw new NotImplementedException("OguLayerUtil.GetLayerNames is not yet implemented");
+            // 获取引擎
+            var engine = GisEngineFactory.GetEngine(format);
+
+            // 创建读取器并获取图层名称
+            var reader = engine.CreateReader();
+            return reader.GetLayerNames(path);
         }
 
         /// <summary>
@@ -107,8 +124,11 @@ namespace OpenGIS.Utils.DataSource
             if (string.IsNullOrWhiteSpace(outputPath))
                 throw new ArgumentException("Output path cannot be null or empty", nameof(outputPath));
 
-            // TODO: Implement format conversion
-            throw new NotImplementedException("OguLayerUtil.ConvertFormat is not yet implemented");
+            // 读取输入图层
+            var layer = ReadLayer(inputFormat, inputPath, layerName, engineType: engineType);
+
+            // 写入输出格式
+            WriteLayer(outputFormat, layer, outputPath, layerName, engineType);
         }
 
         /// <summary>
