@@ -2,10 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
-using NetTopologySuite.Geometries;
-using NetTopologySuite.IO;
 using OpenGIS.Utils.Engine.Model.Layer;
 using OpenGIS.Utils.Utils;
+using OpenGIS.Utils.Configuration;
+using OSGeo.OGR;
+using OgrDataSource = OSGeo.OGR.DataSource;
 
 namespace OpenGIS.Utils.Engine.Util;
 
@@ -22,8 +23,8 @@ public static class ShpUtil
         if (!File.Exists(shpPath))
             throw new FileNotFoundException("Shapefile not found", shpPath);
 
-        // 使用 GeoToolsReader 读取
-        var reader = new GeoToolsReader();
+        // 使用 GdalReader 读取
+        var reader = new GdalReader();
         return reader.Read(shpPath, null, null, null,
             new Dictionary<string, object> { { "encoding", encoding ?? GetShapefileEncoding(shpPath) } });
     }
@@ -38,8 +39,8 @@ public static class ShpUtil
         if (string.IsNullOrWhiteSpace(shpPath))
             throw new ArgumentException("Path cannot be null or empty", nameof(shpPath));
 
-        // 使用 GeoToolsWriter 写入
-        var writer = new GeoToolsWriter();
+        // 使用 GdalWriter 写入
+        var writer = new GdalWriter();
         writer.Write(layer, shpPath, null,
             new Dictionary<string, object> { { "encoding", encoding ?? Encoding.UTF8 } });
     }
@@ -95,15 +96,33 @@ public static class ShpUtil
     /// <summary>
     ///     获取 Shapefile 边界
     /// </summary>
-    public static Envelope? GetShapefileBounds(string shpPath)
+    public static OSGeo.OGR.Envelope? GetShapefileBounds(string shpPath)
     {
         if (!File.Exists(shpPath))
             throw new FileNotFoundException("Shapefile not found", shpPath);
 
-        using var reader = new ShapefileDataReader(shpPath, GeometryFactory.Default);
-        var header = reader.ShapeHeader;
-
-        return new Envelope(header.Bounds.MinX, header.Bounds.MaxX, header.Bounds.MinY, header.Bounds.MaxY);
+        GdalConfiguration.ConfigureGdal();
+        
+        OgrDataSource? dataSource = null;
+        try
+        {
+            dataSource = Ogr.Open(shpPath, 0);
+            if (dataSource == null)
+                return null;
+                
+            var layer = dataSource.GetLayerByIndex(0);
+            if (layer == null)
+                return null;
+                
+            var envelope = new OSGeo.OGR.Envelope();
+            layer.GetExtent(envelope, 1);
+            
+            return envelope;
+        }
+        finally
+        {
+            dataSource?.Dispose();
+        }
     }
 
     /// <summary>
