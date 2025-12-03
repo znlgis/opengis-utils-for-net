@@ -8,6 +8,9 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to create GitHub releases and upload assets
+      packages: write  # May be needed for package registries
     
     steps:
     - name: Checkout code
@@ -31,7 +34,7 @@ jobs:
         # Update the Version property in the .csproj file
         sed -i "s|<Version>.*</Version>|<Version>${{ steps.get_version.outputs.VERSION }}</Version>|g" src/OpenGIS.Utils/OpenGIS.Utils.csproj
         echo "Updated version in .csproj to ${{ steps.get_version.outputs.VERSION }}"
-        cat src/OpenGIS.Utils/OpenGIS.Utils.csproj | grep -A 1 "<Version>"
+        grep -A 1 "<Version>" src/OpenGIS.Utils/OpenGIS.Utils.csproj
     
     - name: Restore dependencies
       run: dotnet restore
@@ -47,8 +50,6 @@ jobs:
     
     - name: Publish to NuGet.org
       run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
-      env:
-        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
     
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2

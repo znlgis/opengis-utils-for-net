@@ -30,7 +30,7 @@ Before the workflow can publish to NuGet.org, you need to add your NuGet API key
 To create a new release and publish to NuGet:
 
 1. Make sure all changes are committed and tests pass
-2. Update the CHANGELOG.md with release notes
+2. (Optional) Update CHANGELOG.md with release notes for your records - the GitHub Release will automatically generate notes
 3. Create and push a version tag:
    ```bash
    git tag v1.0.0
