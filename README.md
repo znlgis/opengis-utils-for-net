@@ -112,6 +112,72 @@ if (!validationResult.IsValid)
 // Use WKT format or load GeoJSON from files using GdalReader
 ```
 
+#### Reading and Writing Data
+
+```csharp
+using OpenGIS.Utils.DataSource;
+using OpenGIS.Utils.Engine.Enums;
+
+// Read from Shapefile
+var layer = OguLayerUtil.ReadLayer(
+    DataFormatType.SHP,
+    "data/cities.shp"
+);
+
+// Write to GeoJSON
+OguLayerUtil.WriteLayer(
+    DataFormatType.GEOJSON,
+    layer,
+    "output/cities.geojson"
+);
+
+// Read with spatial filter
+var filtered = OguLayerUtil.ReadLayer(
+    DataFormatType.SHP,
+    "data/cities.shp",
+    spatialFilterWkt: "POLYGON ((...))"
+);
+```
+
+#### Coordinate Transformation
+
+```csharp
+using OpenGIS.Utils.Engine.Util;
+
+// Transform coordinates from WGS84 to CGCS2000
+string wkt = "POINT (116.404 39.915)";
+string transformed = CrsUtil.Transform(wkt, 4326, 4490);
+
+// Get zone number from longitude
+int zone = CrsUtil.GetDh(116.404);  // 3-degree zone
+int zone6 = CrsUtil.GetDh6(116.404); // 6-degree zone
+
+// Get projected coordinate system WKID
+int wkid = CrsUtil.GetProjectedWkid(39);  // CGCS2000 3-degree zone 39
+```
+
+#### Utility Functions
+
+```csharp
+using OpenGIS.Utils.Utils;
+
+// Encoding detection
+var encoding = EncodingUtil.GetFileEncoding("data.txt");
+var content = File.ReadAllText("data.txt", encoding);
+
+// Natural sorting
+var files = new[] { "file1.txt", "file10.txt", "file2.txt" };
+var sorted = SortUtil.NaturalSort(files, f => f);
+// Result: file1.txt, file2.txt, file10.txt
+
+// Number formatting (avoid scientific notation)
+string formatted = NumUtil.GetPlainString(0.00000123);
+
+// ZIP compression
+ZipUtil.Zip("folder/", "output.zip");
+ZipUtil.Unzip("output.zip", "extracted/");
+```
+
 #### GDAL Configuration
 
 GDAL is automatically configured on first use:
@@ -135,6 +201,50 @@ foreach (var driver in drivers)
 }
 ```
 
+### API Reference
+
+All public APIs are fully documented with XML documentation comments including:
+- Detailed parameter descriptions
+- Return value explanations  
+- Exception conditions
+- Usage examples for key methods
+
+#### Core Classes
+
+- **`OguLayer`** - Unified GIS layer with fields and features
+- **`OguFeature`** - Feature with geometry (WKT) and attributes
+- **`OguField`** - Field definition with data type and constraints
+- **`OguFieldValue`** - Type-safe field value container with conversion methods
+
+#### Geometry Processing
+
+- **`GeometryUtil`** - Comprehensive spatial operations:
+  - Format conversion (WKT ↔ GeoJSON)
+  - Spatial analysis (buffer, intersection, union, difference)
+  - Spatial relationships (contains, intersects, touches, etc.)
+  - Measurements (area, length, centroid)
+  - Topology validation
+
+#### Data I/O
+
+- **`OguLayerUtil`** - High-level data reading/writing
+- **`GdalReader`** / **`GdalWriter`** - GDAL-based I/O operations
+- **`ShpUtil`** - Shapefile-specific utilities (encoding, repair)
+
+#### Coordinate Systems
+
+- **`CrsUtil`** - Coordinate transformation and zone calculations
+  - WGS84, CGCS2000, and custom CRS support
+  - EPSG code handling
+  - Zone number calculations for Chinese coordinate systems
+
+#### Utilities
+
+- **`EncodingUtil`** - Automatic encoding detection (UTF-8, GBK, GB2312)
+- **`ZipUtil`** - ZIP compression and extraction
+- **`SortUtil`** - Natural sorting for filenames with numbers
+- **`NumUtil`** - Number formatting without scientific notation
+
 ### Project Structure
 
 ```
@@ -148,6 +258,7 @@ OpenGIS.Utils/
 ├── Exception/             # Custom exception types
 ├── Geometry/              # GeometryUtil for spatial operations
 ├── Utils/                 # ZipUtil, EncodingUtil, SortUtil, NumUtil
+├── DataSource/            # OguLayerUtil for unified data access
 └── Configuration/         # GdalConfiguration, LibrarySettings
 ```
 
@@ -164,6 +275,17 @@ OpenGIS.Utils/
 
 - **.NET Standard 2.0** or higher
 - Compatible with .NET Core 2.0+, .NET 5+, .NET Framework 4.6.1+
+
+### Documentation
+
+All public APIs include comprehensive XML documentation with:
+- **Parameter descriptions** - Clear explanation of each parameter
+- **Return values** - What the method returns
+- **Exceptions** - When and why exceptions are thrown
+- **Examples** - Code samples for common use cases
+- **Remarks** - Implementation details and important notes
+
+IntelliSense in Visual Studio and other IDEs will display this documentation automatically.
 
 ### License
 
@@ -289,6 +411,72 @@ if (!validationResult.IsValid)
 // 请使用 WKT 格式或通过 GdalReader 从文件加载 GeoJSON
 ```
 
+#### 数据读写
+
+```csharp
+using OpenGIS.Utils.DataSource;
+using OpenGIS.Utils.Engine.Enums;
+
+// 从 Shapefile 读取
+var layer = OguLayerUtil.ReadLayer(
+    DataFormatType.SHP,
+    "data/cities.shp"
+);
+
+// 写入到 GeoJSON
+OguLayerUtil.WriteLayer(
+    DataFormatType.GEOJSON,
+    layer,
+    "output/cities.geojson"
+);
+
+// 使用空间过滤读取
+var filtered = OguLayerUtil.ReadLayer(
+    DataFormatType.SHP,
+    "data/cities.shp",
+    spatialFilterWkt: "POLYGON ((...))"
+);
+```
+
+#### 坐标转换
+
+```csharp
+using OpenGIS.Utils.Engine.Util;
+
+// WGS84 转 CGCS2000
+string wkt = "POINT (116.404 39.915)";
+string transformed = CrsUtil.Transform(wkt, 4326, 4490);
+
+// 根据经度获取带号
+int zone = CrsUtil.GetDh(116.404);  // 3度带
+int zone6 = CrsUtil.GetDh6(116.404); // 6度带
+
+// 获取投影坐标系 WKID
+int wkid = CrsUtil.GetProjectedWkid(39);  // CGCS2000 3度带第39带
+```
+
+#### 实用工具函数
+
+```csharp
+using OpenGIS.Utils.Utils;
+
+// 编码检测
+var encoding = EncodingUtil.GetFileEncoding("data.txt");
+var content = File.ReadAllText("data.txt", encoding);
+
+// 自然排序
+var files = new[] { "file1.txt", "file10.txt", "file2.txt" };
+var sorted = SortUtil.NaturalSort(files, f => f);
+// 结果: file1.txt, file2.txt, file10.txt
+
+// 数字格式化（避免科学计数法）
+string formatted = NumUtil.GetPlainString(0.00000123);
+
+// ZIP 压缩
+ZipUtil.Zip("folder/", "output.zip");
+ZipUtil.Unzip("output.zip", "extracted/");
+```
+
 #### GDAL 配置
 
 GDAL 在首次使用时自动配置：
@@ -312,6 +500,50 @@ foreach (var driver in drivers)
 }
 ```
 
+### API 参考
+
+所有公共 API 都包含完整的 XML 文档注释，包括：
+- 详细的参数说明
+- 返回值解释
+- 异常条件说明
+- 关键方法的使用示例
+
+#### 核心类
+
+- **`OguLayer`** - 统一的 GIS 图层，包含字段和要素
+- **`OguFeature`** - 要素，包含几何（WKT）和属性
+- **`OguField`** - 字段定义，包含数据类型和约束
+- **`OguFieldValue`** - 类型安全的字段值容器，提供转换方法
+
+#### 几何处理
+
+- **`GeometryUtil`** - 全面的空间操作：
+  - 格式转换（WKT ↔ GeoJSON）
+  - 空间分析（缓冲区、交集、并集、差集）
+  - 空间关系（包含、相交、接触等）
+  - 测量（面积、长度、质心）
+  - 拓扑验证
+
+#### 数据 I/O
+
+- **`OguLayerUtil`** - 高级数据读写
+- **`GdalReader`** / **`GdalWriter`** - 基于 GDAL 的 I/O 操作
+- **`ShpUtil`** - Shapefile 专用工具（编码、修复）
+
+#### 坐标系统
+
+- **`CrsUtil`** - 坐标转换和分带计算
+  - 支持 WGS84、CGCS2000 和自定义坐标系
+  - EPSG 代码处理
+  - 中国坐标系统的带号计算
+
+#### 实用工具
+
+- **`EncodingUtil`** - 自动编码检测（UTF-8、GBK、GB2312）
+- **`ZipUtil`** - ZIP 压缩和解压
+- **`SortUtil`** - 文件名自然排序（支持数字）
+- **`NumUtil`** - 数字格式化（避免科学计数法）
+
 ### 项目结构
 
 ```
@@ -325,6 +557,7 @@ OpenGIS.Utils/
 ├── Exception/             # 自定义异常类型
 ├── Geometry/              # GeometryUtil 空间操作
 ├── Utils/                 # ZipUtil、EncodingUtil、SortUtil、NumUtil
+├── DataSource/            # OguLayerUtil 统一数据访问
 └── Configuration/         # GdalConfiguration、LibrarySettings
 ```
 
@@ -341,6 +574,17 @@ OpenGIS.Utils/
 
 - **.NET Standard 2.0** 或更高版本
 - 兼容 .NET Core 2.0+、.NET 5+、.NET Framework 4.6.1+
+
+### 文档说明
+
+所有公共 API 都包含完整的 XML 文档注释：
+- **参数说明** - 每个参数的清晰解释
+- **返回值** - 方法返回的内容
+- **异常** - 何时以及为什么会抛出异常
+- **示例** - 常见用例的代码示例
+- **备注** - 实现细节和重要说明
+
+在 Visual Studio 和其他 IDE 中，IntelliSense 会自动显示这些文档。
 
 ### 许可证
 
