@@ -22,8 +22,9 @@ namespace OpenGIS.Utils.Engine.Util
             // 确保 GDAL 已初始化
             GdalConfiguration.ConfigureGdal();
 
-            // TODO: Implement OGR data source reading
-            throw new NotImplementedException("OgrUtil.ReadOgrDataSource is not yet implemented");
+            // 使用 GdalReader 读取
+            var reader = new GdalReader();
+            return reader.Read(path, layerName, filter, null, null);
         }
 
         /// <summary>
@@ -39,8 +40,12 @@ namespace OpenGIS.Utils.Engine.Util
             // 确保 GDAL 已初始化
             GdalConfiguration.ConfigureGdal();
 
-            // TODO: Implement OGR data source writing
-            throw new NotImplementedException("OgrUtil.WriteOgrDataSource is not yet implemented");
+            // 使用 GdalWriter 写入
+            var writer = new GdalWriter();
+            var options = driverName != null 
+                ? new Dictionary<string, object> { { "driver", driverName } }
+                : null;
+            writer.Write(layer, path, layerName, options);
         }
 
         /// <summary>
@@ -54,8 +59,9 @@ namespace OpenGIS.Utils.Engine.Util
             // 确保 GDAL 已初始化
             GdalConfiguration.ConfigureGdal();
 
-            // TODO: Implement layer enumeration
-            throw new NotImplementedException("OgrUtil.GetLayerNames is not yet implemented");
+            // 使用 GdalReader 获取图层名称
+            var reader = new GdalReader();
+            return reader.GetLayerNames(path);
         }
 
         /// <summary>

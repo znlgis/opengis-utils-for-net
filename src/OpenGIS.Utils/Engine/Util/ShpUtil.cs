@@ -21,8 +21,12 @@ namespace OpenGIS.Utils.Engine.Util
             if (!File.Exists(shpPath))
                 throw new FileNotFoundException("Shapefile not found", shpPath);
 
-            // TODO: Implement Shapefile reading using NetTopologySuite.IO.ShapeFile
-            throw new NotImplementedException("ShpUtil.ReadShapefile is not yet implemented");
+            // 使用 GeoToolsReader 读取
+            var reader = new GeoToolsReader();
+            return reader.Read(shpPath, null, null, null, new System.Collections.Generic.Dictionary<string, object>
+            {
+                { "encoding", encoding ?? GetShapefileEncoding(shpPath) }
+            });
         }
 
         /// <summary>
@@ -35,8 +39,12 @@ namespace OpenGIS.Utils.Engine.Util
             if (string.IsNullOrWhiteSpace(shpPath))
                 throw new ArgumentException("Path cannot be null or empty", nameof(shpPath));
 
-            // TODO: Implement Shapefile writing using NetTopologySuite.IO.ShapeFile
-            throw new NotImplementedException("ShpUtil.WriteShapefile is not yet implemented");
+            // 使用 GeoToolsWriter 写入
+            var writer = new GeoToolsWriter();
+            writer.Write(layer, shpPath, null, new System.Collections.Generic.Dictionary<string, object>
+            {
+                { "encoding", encoding ?? Encoding.UTF8 }
+            });
         }
 
         /// <summary>
@@ -98,8 +106,10 @@ namespace OpenGIS.Utils.Engine.Util
             if (!File.Exists(shpPath))
                 throw new FileNotFoundException("Shapefile not found", shpPath);
 
-            // TODO: Implement bounds reading
-            throw new NotImplementedException("ShpUtil.GetShapefileBounds is not yet implemented");
+            using var reader = new NetTopologySuite.IO.ShapefileDataReader(shpPath, NetTopologySuite.Geometries.GeometryFactory.Default);
+            var header = reader.ShapeHeader;
+            
+            return new Envelope(header.Bounds.MinX, header.Bounds.MaxX, header.Bounds.MinY, header.Bounds.MaxY);
         }
 
         /// <summary>
@@ -110,8 +120,44 @@ namespace OpenGIS.Utils.Engine.Util
             if (!File.Exists(shpPath))
                 throw new FileNotFoundException("Shapefile not found", shpPath);
 
-            // TODO: Implement Shapefile repair
-            throw new NotImplementedException("ShpUtil.RepairShapefile is not yet implemented");
+            // 读取并重新写入 Shapefile 可以修复一些问题
+            var layer = ReadShapefile(shpPath);
+            var tempPath = Path.Combine(Path.GetDirectoryName(shpPath) ?? "", 
+                Path.GetFileNameWithoutExtension(shpPath) + "_temp.shp");
+            
+            try
+            {
+                WriteShapefile(layer, tempPath);
+                
+                // 删除原文件
+                var extensions = new[] { ".shp", ".shx", ".dbf", ".prj", ".cpg" };
+                foreach (var ext in extensions)
+                {
+                    var file = Path.ChangeExtension(shpPath, ext);
+                    if (File.Exists(file))
+                        File.Delete(file);
+                }
+                
+                // 重命名临时文件
+                foreach (var ext in extensions)
+                {
+                    var tempFile = Path.ChangeExtension(tempPath, ext);
+                    var targetFile = Path.ChangeExtension(shpPath, ext);
+                    if (File.Exists(tempFile))
+                        File.Move(tempFile, targetFile);
+                }
+            }
+            finally
+            {
+                // 清理临时文件
+                var extensions = new[] { ".shp", ".shx", ".dbf", ".prj", ".cpg" };
+                foreach (var ext in extensions)
+                {
+                    var tempFile = Path.ChangeExtension(tempPath, ext);
+                    if (File.Exists(tempFile))
+                        File.Delete(tempFile);
+                }
+            }
         }
     }
 }

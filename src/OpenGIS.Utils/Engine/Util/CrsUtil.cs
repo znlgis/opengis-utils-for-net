@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using NtsGeometry = NetTopologySuite.Geometries.Geometry;
 using OpenGIS.Utils.Configuration;
+using SysException = System.Exception;
 
 namespace OpenGIS.Utils.Engine.Util
 {
@@ -21,8 +22,32 @@ namespace OpenGIS.Utils.Engine.Util
             if (sourceWkid == targetWkid)
                 return wkt;
 
-            // TODO: Implement coordinate transformation using GDAL
-            throw new NotImplementedException("CrsUtil.Transform is not yet implemented");
+            // 确保 GDAL 已初始化
+            GdalConfiguration.ConfigureGdal();
+
+            // 使用 OGR 进行坐标转换
+            using var geometry = OSGeo.OGR.Geometry.CreateFromWkt(wkt);
+            if (geometry == null)
+                throw new ArgumentException("Invalid WKT", nameof(wkt));
+
+            var sourceSrs = new OSGeo.OSR.SpatialReference(null);
+            sourceSrs.ImportFromEPSG(sourceWkid);
+
+            var targetSrs = new OSGeo.OSR.SpatialReference(null);
+            targetSrs.ImportFromEPSG(targetWkid);
+
+            var transform = new OSGeo.OSR.CoordinateTransformation(sourceSrs, targetSrs);
+            
+            if (geometry.Transform(transform) != 0)
+                throw new SysException("Coordinate transformation failed");
+
+            geometry.ExportToWkt(out string transformedWkt);
+            
+            sourceSrs.Dispose();
+            targetSrs.Dispose();
+            transform.Dispose();
+
+            return transformedWkt;
         }
 
         /// <summary>
@@ -36,8 +61,12 @@ namespace OpenGIS.Utils.Engine.Util
             if (sourceWkid == targetWkid)
                 return geometry;
 
-            // TODO: Implement coordinate transformation using GDAL
-            throw new NotImplementedException("CrsUtil.Transform(Geometry) is not yet implemented");
+            // 将 NTS Geometry 转为 WKT，进行转换，再转回来
+            var wkt = geometry.AsText();
+            var transformedWkt = Transform(wkt, sourceWkid, targetWkid);
+            
+            var wktReader = new NetTopologySuite.IO.WKTReader();
+            return wktReader.Read(transformedWkt);
         }
 
         /// <summary>
