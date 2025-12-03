@@ -26,6 +26,8 @@ public static class GdalConfiguration
     /// <summary>
     ///     配置 GDAL
     /// </summary>
+    /// <exception cref="InvalidOperationException">当 GDAL 配置失败时抛出</exception>
+    /// <remarks>此方法是线程安全的，多次调用只会执行一次配置</remarks>
     public static void ConfigureGdal()
     {
         lock (_lock)
@@ -56,6 +58,7 @@ public static class GdalConfiguration
     /// <summary>
     ///     注册所有驱动
     /// </summary>
+    /// <remarks>注册 GDAL 和 OGR 的所有可用驱动程序</remarks>
     public static void RegisterAllDrivers()
     {
         Gdal.AllRegister();
@@ -65,6 +68,7 @@ public static class GdalConfiguration
     /// <summary>
     ///     设置 GDAL 配置选项
     /// </summary>
+    /// <remarks>设置 UTF-8 文件名、Shapefile 编码、GIS 坐标顺序等选项</remarks>
     public static void SetConfigOptions()
     {
         // 设置文件名为 UTF-8
@@ -83,6 +87,7 @@ public static class GdalConfiguration
     /// <summary>
     ///     获取 GDAL 版本
     /// </summary>
+    /// <returns>GDAL 版本字符串</returns>
     public static string GetGdalVersion()
     {
         EnsureConfigured();
@@ -92,6 +97,7 @@ public static class GdalConfiguration
     /// <summary>
     ///     获取支持的驱动列表
     /// </summary>
+    /// <returns>驱动名称列表</returns>
     public static IList<string> GetSupportedDrivers()
     {
         EnsureConfigured();
@@ -110,6 +116,8 @@ public static class GdalConfiguration
     /// <summary>
     ///     检查驱动是否可用
     /// </summary>
+    /// <param name="driverName">驱动名称</param>
+    /// <returns>如果驱动可用返回 true，否则返回 false</returns>
     public static bool IsDriverAvailable(string driverName)
     {
         EnsureConfigured();

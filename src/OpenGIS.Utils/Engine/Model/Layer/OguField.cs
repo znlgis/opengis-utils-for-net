@@ -51,6 +51,7 @@ public class OguField
     /// <summary>
     ///     转换为 JSON
     /// </summary>
+    /// <returns>JSON 字符串</returns>
     public string ToJson()
     {
         return JsonSerializer.Serialize(this);
@@ -59,6 +60,8 @@ public class OguField
     /// <summary>
     ///     从 JSON 创建
     /// </summary>
+    /// <param name="json">JSON 字符串</param>
+    /// <returns>反序列化的字段定义，如果失败则返回 null</returns>
     public static OguField? FromJson(string json)
     {
         return JsonSerializer.Deserialize<OguField>(json);
@@ -67,6 +70,7 @@ public class OguField
     /// <summary>
     ///     深拷贝
     /// </summary>
+    /// <returns>字段定义的完整副本</returns>
     public OguField Clone()
     {
         return new OguField

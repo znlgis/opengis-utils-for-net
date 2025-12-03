@@ -81,6 +81,8 @@ public class OguLayer
     /// <summary>
     ///     过滤要素
     /// </summary>
+    /// <param name="filter">过滤条件函数</param>
+    /// <returns>满足条件的要素列表</returns>
     public IList<OguFeature> Filter(Func<OguFeature, bool> filter)
     {
         return Features.Where(filter).ToList();
@@ -89,6 +91,7 @@ public class OguLayer
     /// <summary>
     ///     获取要素数量
     /// </summary>
+    /// <returns>图层中的要素数量</returns>
     public int GetFeatureCount()
     {
         return Features?.Count ?? 0;
@@ -97,6 +100,7 @@ public class OguLayer
     /// <summary>
     ///     转换为 JSON 字符串
     /// </summary>
+    /// <returns>格式化的 JSON 字符串</returns>
     public string ToJson()
     {
         return JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
@@ -105,6 +109,8 @@ public class OguLayer
     /// <summary>
     ///     从 JSON 创建
     /// </summary>
+    /// <param name="json">JSON 字符串</param>
+    /// <returns>反序列化的图层对象，如果失败则返回 null</returns>
     public static OguLayer? FromJson(string json)
     {
         return JsonSerializer.Deserialize<OguLayer>(json);
@@ -113,6 +119,7 @@ public class OguLayer
     /// <summary>
     ///     深拷贝
     /// </summary>
+    /// <returns>图层的完整副本，包括所有字段、要素和元数据</returns>
     public OguLayer Clone()
     {
         var clone = new OguLayer { Name = Name, Wkid = Wkid, GeometryType = GeometryType };
@@ -143,6 +150,8 @@ public class OguLayer
     /// <summary>
     ///     根据字段名获取字段定义
     /// </summary>
+    /// <param name="fieldName">字段名称</param>
+    /// <returns>字段定义，如果不存在则返回 null</returns>
     public OguField? GetField(string fieldName)
     {
         return Fields.FirstOrDefault(f => f.Name == fieldName);
@@ -151,6 +160,8 @@ public class OguLayer
     /// <summary>
     ///     添加字段
     /// </summary>
+    /// <param name="field">字段定义</param>
+    /// <exception cref="LayerValidationException">当字段名称已存在时抛出</exception>
     public void AddField(OguField field)
     {
         if (Fields.Any(f => f.Name == field.Name))
@@ -161,6 +172,7 @@ public class OguLayer
     /// <summary>
     ///     添加要素
     /// </summary>
+    /// <param name="feature">要素对象</param>
     public void AddFeature(OguFeature feature)
     {
         Features.Add(feature);
@@ -169,6 +181,8 @@ public class OguLayer
     /// <summary>
     ///     移除要素
     /// </summary>
+    /// <param name="fid">要素 ID</param>
+    /// <returns>如果成功移除返回 true，否则返回 false</returns>
     public bool RemoveFeature(int fid)
     {
         var feature = Features.FirstOrDefault(f => f.Fid == fid);

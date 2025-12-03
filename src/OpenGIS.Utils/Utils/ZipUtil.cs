@@ -15,6 +15,9 @@ public static class ZipUtil
     /// <summary>
     ///     压缩文件夹
     /// </summary>
+    /// <param name="folderPath">要压缩的文件夹路径</param>
+    /// <param name="zipPath">输出的 ZIP 文件路径</param>
+    /// <exception cref="DirectoryNotFoundException">当文件夹不存在时抛出</exception>
     public static void Zip(string folderPath, string zipPath)
     {
         Zip(folderPath, zipPath, Encoding.UTF8);
@@ -23,6 +26,10 @@ public static class ZipUtil
     /// <summary>
     ///     压缩文件夹（指定编码）
     /// </summary>
+    /// <param name="folderPath">要压缩的文件夹路径</param>
+    /// <param name="zipPath">输出的 ZIP 文件路径</param>
+    /// <param name="encoding">文件名编码</param>
+    /// <exception cref="DirectoryNotFoundException">当文件夹不存在时抛出</exception>
     public static void Zip(string folderPath, string zipPath, Encoding encoding)
     {
         if (!Directory.Exists(folderPath))
@@ -52,6 +59,9 @@ public static class ZipUtil
     /// <summary>
     ///     解压缩文件
     /// </summary>
+    /// <param name="zipPath">ZIP 文件路径</param>
+    /// <param name="destPath">解压目标目录</param>
+    /// <exception cref="FileNotFoundException">当 ZIP 文件不存在时抛出</exception>
     public static void Unzip(string zipPath, string destPath)
     {
         Unzip(zipPath, destPath, Encoding.UTF8);
@@ -60,6 +70,10 @@ public static class ZipUtil
     /// <summary>
     ///     解压缩文件（指定编码）
     /// </summary>
+    /// <param name="zipPath">ZIP 文件路径</param>
+    /// <param name="destPath">解压目标目录</param>
+    /// <param name="encoding">文件名编码</param>
+    /// <exception cref="FileNotFoundException">当 ZIP 文件不存在时抛出</exception>
     public static void Unzip(string zipPath, string destPath, Encoding encoding)
     {
         if (!File.Exists(zipPath))
@@ -101,6 +115,9 @@ public static class ZipUtil
     /// <summary>
     ///     压缩多个文件
     /// </summary>
+    /// <param name="filePaths">要压缩的文件路径集合</param>
+    /// <param name="zipPath">输出的 ZIP 文件路径</param>
+    /// <exception cref="ArgumentNullException">当文件路径集合为 null 时抛出</exception>
     public static void CompressFiles(IEnumerable<string> filePaths, string zipPath)
     {
         if (filePaths == null)
