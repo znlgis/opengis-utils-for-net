@@ -65,6 +65,10 @@ public static class GeometryUtil
     /// <summary>
     ///     GeoJSON 转 Geometry
     /// </summary>
+    /// <param name="geojson">GeoJSON 格式的几何字符串</param>
+    /// <returns>OGR 几何对象</returns>
+    /// <exception cref="ArgumentException">当 GeoJSON 为空时抛出</exception>
+    /// <exception cref="NotSupportedException">GDAL/OGR 不支持直接解析 GeoJSON 字符串，此方法总是抛出此异常</exception>
     /// <remarks>
     ///     GDAL/OGR doesn't support direct GeoJSON string parsing.
     ///     This is a breaking change from the NetTopologySuite implementation.
