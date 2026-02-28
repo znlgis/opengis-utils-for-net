@@ -46,7 +46,9 @@ public static class ZipUtil
         using var zipStream = new ZipOutputStream(fsOut);
 
         zipStream.SetLevel(CompressionLevel);
+#pragma warning disable CS0618 // ZipStrings.CodePage is obsolete but StringCodec not available on stream in SharpZipLib 1.4.2
         ZipStrings.CodePage = encoding.CodePage;
+#pragma warning restore CS0618
 
         var folderOffset = folderPath.Length + (folderPath.EndsWith(Path.DirectorySeparatorChar.ToString()) ? 0 : 1);
         CompressFolder(folderPath, zipStream, folderOffset);
@@ -78,13 +80,18 @@ public static class ZipUtil
         if (!Directory.Exists(destPath))
             Directory.CreateDirectory(destPath);
 
-        ZipStrings.CodePage = encoding.CodePage;
-
         using var fsInput = File.OpenRead(zipPath);
         using var zipInputStream = new ZipInputStream(fsInput);
+#pragma warning disable CS0618 // ZipStrings.CodePage is obsolete but StringCodec not available on stream in SharpZipLib 1.4.2
+        ZipStrings.CodePage = encoding.CodePage;
+#pragma warning restore CS0618
 
         var buffer = new byte[BufferSize];
         ZipEntry? theEntry;
+
+        var destFullPath = Path.GetFullPath(destPath);
+        if (!destFullPath.EndsWith(Path.DirectorySeparatorChar.ToString()))
+            destFullPath += Path.DirectorySeparatorChar;
 
         while ((theEntry = zipInputStream.GetNextEntry()) != null)
         {
@@ -94,13 +101,17 @@ public static class ZipUtil
             // Create directory
             if (!string.IsNullOrEmpty(directoryName))
             {
-                var dirPath = Path.Combine(destPath, directoryName);
+                var dirPath = Path.GetFullPath(Path.Combine(destPath, directoryName));
+                if (!dirPath.StartsWith(destFullPath))
+                    throw new IOException($"Entry is outside of the target dir: {theEntry.Name}");
                 Directory.CreateDirectory(dirPath);
             }
 
             if (!string.IsNullOrEmpty(fileName))
             {
-                var fullPath = Path.Combine(destPath, theEntry.Name);
+                var fullPath = Path.GetFullPath(Path.Combine(destPath, theEntry.Name));
+                if (!fullPath.StartsWith(destFullPath))
+                    throw new IOException($"Entry is outside of the target dir: {theEntry.Name}");
                 using var streamWriter = File.Create(fullPath);
                 StreamUtils.Copy(zipInputStream, streamWriter, buffer);
             }

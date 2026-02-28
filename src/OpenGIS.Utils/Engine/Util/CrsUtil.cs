@@ -43,22 +43,18 @@ public static class CrsUtil
         if (geometry == null)
             throw new ArgumentException("Invalid WKT", nameof(wkt));
 
-        var sourceSrs = new SpatialReference(null);
+        using var sourceSrs = new SpatialReference(null);
         sourceSrs.ImportFromEPSG(sourceWkid);
 
-        var targetSrs = new SpatialReference(null);
+        using var targetSrs = new SpatialReference(null);
         targetSrs.ImportFromEPSG(targetWkid);
 
-        var transform = new CoordinateTransformation(sourceSrs, targetSrs);
+        using var transform = new CoordinateTransformation(sourceSrs, targetSrs);
 
         if (geometry.Transform(transform) != 0)
             throw new SysException("Coordinate transformation failed");
 
         geometry.ExportToWkt(out string transformedWkt);
-
-        sourceSrs.Dispose();
-        targetSrs.Dispose();
-        transform.Dispose();
 
         return transformedWkt;
     }

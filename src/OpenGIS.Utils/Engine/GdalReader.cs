@@ -236,6 +236,15 @@ public class GdalReader : ILayerReader
 
     private wkbGeometryType wkbFlatten(int geomType)
     {
-        return (wkbGeometryType)(geomType & ~0x80000000);
+        // Remove 25D bit
+        var flatType = (int)((uint)geomType & 0x7FFFFFFFu);
+        // Handle Z (1000-1999), M (2000-2999), ZM (3000-3999) offsets
+        if (flatType >= 1000 && flatType < 2000)
+            return (wkbGeometryType)(flatType - 1000);
+        if (flatType >= 2000 && flatType < 3000)
+            return (wkbGeometryType)(flatType - 2000);
+        if (flatType >= 3000 && flatType < 4000)
+            return (wkbGeometryType)(flatType - 3000);
+        return (wkbGeometryType)flatType;
     }
 }
