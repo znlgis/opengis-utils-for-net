@@ -226,7 +226,7 @@ public static class GeometryUtil
         if (geom == null)
             throw new ArgumentNullException(nameof(geom));
 
-        return geom.Buffer(distance, 30);
+        return geom.Buffer(distance, LibrarySettings.DefaultBufferSegments);
     }
 
     /// <summary>

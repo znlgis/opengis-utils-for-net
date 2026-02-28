@@ -125,7 +125,7 @@ public static class GtTxtUtil
             if (!string.IsNullOrWhiteSpace(feature.Wkt))
                 try
                 {
-                    coordinate = OguCoordinate.FromWkt(feature.Wkt);
+                    coordinate = OguCoordinate.FromWkt(feature.Wkt!);
                 }
                 catch
                 {
