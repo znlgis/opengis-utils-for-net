@@ -23,7 +23,7 @@ dotnet test tests/OpenGIS.Utils.Tests/
 ```
 src/OpenGIS.Utils/
 ├── Configuration/        # GdalConfiguration, LibrarySettings
-├── DataSource/           # OguLayerUtil (high-level I/O), GtTxtUtil (国土TXT)
+├── DataSource/           # OguLayerUtil (high-level I/O), GtTxtUtil (National Land Survey TXT)
 ├── Engine/
 │   ├── Enums/            # GeometryType, FieldDataType, DataFormatType, GisEngineType, TopologyValidationErrorType
 │   ├── IO/               # ILayerReader, ILayerWriter
@@ -441,7 +441,7 @@ void     PostgisUtil.CreateSpatialIndex(string connectionString, string tableNam
 
 ---
 
-## 国土TXT Format — GtTxtUtil
+## National Land Survey TXT Format — GtTxtUtil
 
 ```csharp
 using OpenGIS.Utils.DataSource;
