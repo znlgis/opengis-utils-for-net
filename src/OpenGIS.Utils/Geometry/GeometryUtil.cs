@@ -689,9 +689,15 @@ public static class GeometryUtil
             foreach (var wkt in wktList)
                 geometries.Add(Wkt2Geometry(wkt));
 
+            if (geometries.Count == 0)
+                throw new ArgumentException("WKT list cannot be empty", nameof(wktList));
+
+            // 单个元素时 Union 会返回输入实例本身，直接导出避免重复释放；
+            // 多个元素时 Union 返回新建几何，使用 using 释放，输入几何在 finally 中统一释放。
+            if (geometries.Count == 1)
+                return Geometry2Wkt(geometries[0]);
+
             using var result = Union(geometries);
-            // Union 在只有一个元素时会返回该输入实例（其会在 finally 中释放），
-            // 因此先导出 WKT，再释放所有几何。
             return Geometry2Wkt(result);
         }
         finally
