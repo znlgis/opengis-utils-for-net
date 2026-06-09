@@ -109,7 +109,7 @@ public static class GeometryUtil
     /// <returns>GeoJSON 格式的几何字符串</returns>
     public static string Wkt2Geojson(string wkt)
     {
-        var geom = Wkt2Geometry(wkt);
+        using var geom = Wkt2Geometry(wkt);
         return Geometry2Geojson(geom);
     }
 
@@ -279,8 +279,15 @@ public static class GeometryUtil
         if (geomList.Count == 1)
             return geomList[0];
 
-        OgrGeometry result = geomList[0];
-        for (int i = 1; i < geomList.Count; i++) result = result.Union(geomList[i]);
+        // 链式合并：释放中间结果，避免非托管几何内存泄漏；
+        // 注意不能释放调用方拥有的输入几何（geomList 元素）
+        OgrGeometry result = geomList[0].Union(geomList[1]);
+        for (int i = 2; i < geomList.Count; i++)
+        {
+            var next = result.Union(geomList[i]);
+            result.Dispose();
+            result = next;
+        }
 
         return result;
     }
@@ -632,8 +639,8 @@ public static class GeometryUtil
     /// </summary>
     public static bool IntersectsWkt(string wktA, string wktB)
     {
-        var geomA = Wkt2Geometry(wktA);
-        var geomB = Wkt2Geometry(wktB);
+        using var geomA = Wkt2Geometry(wktA);
+        using var geomB = Wkt2Geometry(wktB);
         return Intersects(geomA, geomB);
     }
 
@@ -642,8 +649,8 @@ public static class GeometryUtil
     /// </summary>
     public static bool ContainsWkt(string wktA, string wktB)
     {
-        var geomA = Wkt2Geometry(wktA);
-        var geomB = Wkt2Geometry(wktB);
+        using var geomA = Wkt2Geometry(wktA);
+        using var geomB = Wkt2Geometry(wktB);
         return Contains(geomA, geomB);
     }
 
@@ -652,8 +659,8 @@ public static class GeometryUtil
     /// </summary>
     public static string BufferWkt(string wkt, double distance)
     {
-        var geom = Wkt2Geometry(wkt);
-        var buffered = Buffer(geom, distance);
+        using var geom = Wkt2Geometry(wkt);
+        using var buffered = Buffer(geom, distance);
         return Geometry2Wkt(buffered);
     }
 
@@ -662,9 +669,9 @@ public static class GeometryUtil
     /// </summary>
     public static string IntersectionWkt(string wktA, string wktB)
     {
-        var geomA = Wkt2Geometry(wktA);
-        var geomB = Wkt2Geometry(wktB);
-        var result = Intersection(geomA, geomB);
+        using var geomA = Wkt2Geometry(wktA);
+        using var geomB = Wkt2Geometry(wktB);
+        using var result = Intersection(geomA, geomB);
         return Geometry2Wkt(result);
     }
 
@@ -673,9 +680,25 @@ public static class GeometryUtil
     /// </summary>
     public static string UnionWkt(IEnumerable<string> wktList)
     {
-        var geometries = wktList.Select(Wkt2Geometry);
-        var result = Union(geometries);
-        return Geometry2Wkt(result);
+        if (wktList == null)
+            throw new ArgumentNullException(nameof(wktList));
+
+        var geometries = new List<OgrGeometry>();
+        try
+        {
+            foreach (var wkt in wktList)
+                geometries.Add(Wkt2Geometry(wkt));
+
+            using var result = Union(geometries);
+            // Union 在只有一个元素时会返回该输入实例（其会在 finally 中释放），
+            // 因此先导出 WKT，再释放所有几何。
+            return Geometry2Wkt(result);
+        }
+        finally
+        {
+            foreach (var geom in geometries)
+                geom.Dispose();
+        }
     }
 
     /// <summary>
@@ -683,7 +706,7 @@ public static class GeometryUtil
     /// </summary>
     public static double AreaWkt(string wkt)
     {
-        var geom = Wkt2Geometry(wkt);
+        using var geom = Wkt2Geometry(wkt);
         return Area(geom);
     }
 
@@ -692,7 +715,7 @@ public static class GeometryUtil
     /// </summary>
     public static double LengthWkt(string wkt)
     {
-        var geom = Wkt2Geometry(wkt);
+        using var geom = Wkt2Geometry(wkt);
         return Length(geom);
     }
 
@@ -701,8 +724,8 @@ public static class GeometryUtil
     /// </summary>
     public static string CentroidWkt(string wkt)
     {
-        var geom = Wkt2Geometry(wkt);
-        var centroid = Centroid(geom);
+        using var geom = Wkt2Geometry(wkt);
+        using var centroid = Centroid(geom);
         return Geometry2Wkt(centroid);
     }
 
@@ -711,8 +734,8 @@ public static class GeometryUtil
     /// </summary>
     public static string SimplifyWkt(string wkt, double tolerance)
     {
-        var geom = Wkt2Geometry(wkt);
-        var simplified = Simplify(geom, tolerance);
+        using var geom = Wkt2Geometry(wkt);
+        using var simplified = Simplify(geom, tolerance);
         return Geometry2Wkt(simplified);
     }
 

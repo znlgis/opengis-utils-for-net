@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 
 namespace OpenGIS.Utils.Engine.Model.Layer;
 
@@ -43,8 +44,9 @@ public class OguCoordinate
     /// <returns>WKT 格式的点字符串</returns>
     public string ToWkt()
     {
-        if (Z.HasValue) return $"POINT Z ({X} {Y} {Z.Value})";
-        return $"POINT ({X} {Y})";
+        if (Z.HasValue)
+            return string.Format(CultureInfo.InvariantCulture, "POINT Z ({0} {1} {2})", X, Y, Z.Value);
+        return string.Format(CultureInfo.InvariantCulture, "POINT ({0} {1})", X, Y);
     }
 
     /// <summary>
@@ -74,11 +76,11 @@ public class OguCoordinate
         var result = new OguCoordinate();
         if (coords.Length >= 2)
         {
-            result.X = double.Parse(coords[0]);
-            result.Y = double.Parse(coords[1]);
+            result.X = double.Parse(coords[0], CultureInfo.InvariantCulture);
+            result.Y = double.Parse(coords[1], CultureInfo.InvariantCulture);
         }
 
-        if (coords.Length >= 3) result.Z = double.Parse(coords[2]);
+        if (coords.Length >= 3) result.Z = double.Parse(coords[2], CultureInfo.InvariantCulture);
 
         return result;
     }

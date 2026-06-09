@@ -1,5 +1,6 @@
 using FluentAssertions;
 using OpenGIS.Utils.Engine.Model.Layer;
+using System.Globalization;
 
 namespace OpenGIS.Utils.Tests;
 
@@ -72,5 +73,44 @@ public class OguCoordinateTests
 
         coord.X.Should().Be(10.0);
         coord.Y.Should().Be(20.0);
+    }
+
+    [Fact]
+    public void ToWkt_IsCultureInvariant()
+    {
+        // 在使用逗号作为小数分隔符的区域设置下（如 de-DE），
+        // WKT 仍必须使用 '.' 作为小数分隔符，否则会生成无效的 WKT。
+        var original = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+
+            var coord = new OguCoordinate { X = 120.5, Y = 30.2, Z = 100.25 };
+
+            coord.ToWkt().Should().Be("POINT Z (120.5 30.2 100.25)");
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
+    }
+
+    [Fact]
+    public void FromWkt_IsCultureInvariant()
+    {
+        var original = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+
+            var coord = OguCoordinate.FromWkt("POINT (120.5 30.2)");
+
+            coord.X.Should().Be(120.5);
+            coord.Y.Should().Be(30.2);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
     }
 }
