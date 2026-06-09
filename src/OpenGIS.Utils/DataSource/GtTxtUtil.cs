@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -161,11 +162,11 @@ public static class GtTxtUtil
             {
                 PointNumber = match.Groups[1].Value,
                 RingNumber = match.Groups[2].Value,
-                X = double.Parse(match.Groups[3].Value),
-                Y = double.Parse(match.Groups[4].Value)
+                X = double.Parse(match.Groups[3].Value, CultureInfo.InvariantCulture),
+                Y = double.Parse(match.Groups[4].Value, CultureInfo.InvariantCulture)
             };
 
-            if (!string.IsNullOrWhiteSpace(match.Groups[5].Value)) coordinate.Z = double.Parse(match.Groups[5].Value);
+            if (!string.IsNullOrWhiteSpace(match.Groups[5].Value)) coordinate.Z = double.Parse(match.Groups[5].Value, CultureInfo.InvariantCulture);
 
             if (!string.IsNullOrWhiteSpace(match.Groups[6].Value)) coordinate.Remark = match.Groups[6].Value.Trim();
 
