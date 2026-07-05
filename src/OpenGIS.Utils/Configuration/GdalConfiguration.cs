@@ -37,10 +37,20 @@ public static class GdalConfiguration
 
             try
             {
+                // 清除可能冲突的 OSGeo4W 等系统级 GDAL 环境变量，
+                // 确保 MaxRev.Gdal 使用其自带的 GDAL 运行时（使用 Process 级别清除）
+                Environment.SetEnvironmentVariable("GDAL_DRIVER_PATH", null, EnvironmentVariableTarget.Process);
+                Environment.SetEnvironmentVariable("GDAL_DATA", null, EnvironmentVariableTarget.Process);
+                Environment.SetEnvironmentVariable("PROJ_LIB", null, EnvironmentVariableTarget.Process);
+                Environment.SetEnvironmentVariable("OSGEO4W_ROOT", null, EnvironmentVariableTarget.Process);
+
+                // 通过 GDAL config 显式覆盖驱动路径，防止 AllRegister 扫描不兼容的系统插件
+                Gdal.SetConfigOption("GDAL_DRIVER_PATH", "");
+
                 // MaxRev.Gdal.Universal 会自动配置路径
                 GdalBase.ConfigureAll();
 
-                // 注册所有驱动
+                // 注册所有驱动（GDAL AllRegister 已在 ConfigureAll 中调用，此处补充 OGR 注册）
                 RegisterAllDrivers();
 
                 // 设置配置选项
