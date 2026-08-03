@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `OguLogging`: configurable library-wide logging facade based on the
+  `Microsoft.Extensions.Logging.Abstractions` dependency. Defaults to no output
+  (`NullLoggerFactory`); set `OguLogging.LoggerFactory` at startup to receive
+  internal diagnostics that were previously silently discarded.
 - Initial project structure and solution setup
 - Core enums: GeometryType, FieldDataType, GisEngineType, DataFormatType, TopologyValidationErrorType
 - Exception system: OguException, DataSourceException, FormatParseException, EngineNotSupportedException, LayerValidationException, TopologyException
@@ -32,6 +36,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - System.Text.Encoding.CodePages 7.0.0
   - Microsoft.Extensions.Logging.Abstractions 7.0.0
   - SharpZipLib 1.4.2
+
+### Changed
+- Replaced `Console.WriteLine` diagnostics in `GdalWriter` with structured logging.
+- Silent `catch` blocks in `GdalReader`, `GdalWriter`, `PostgisUtil`, and
+  `GtTxtUtil` now log the swallowed exception (Debug/Warning) instead of
+  discarding it, preserving the previous control flow.
+
+### Fixed
+- `GeometryUtil.Envelope` no longer leaks the temporary linear-ring native
+  geometry after it is cloned into the result polygon.
 
 ## [1.0.0] - TBD
 

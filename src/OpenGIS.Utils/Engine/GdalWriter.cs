@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Microsoft.Extensions.Logging;
 using OpenGIS.Utils.Configuration;
 using OpenGIS.Utils.Engine.Enums;
 using OpenGIS.Utils.Engine.IO;
@@ -16,6 +17,8 @@ namespace OpenGIS.Utils.Engine;
 /// </summary>
 public class GdalWriter : ILayerWriter
 {
+    private static readonly ILogger Logger = OguLogging.CreateLogger<GdalWriter>();
+
     static GdalWriter()
     {
         // 确保 GDAL 已初始化
@@ -56,9 +59,9 @@ public class GdalWriter : ILayerWriter
             {
                 driver.DeleteDataSource(path);
             }
-            catch
+            catch (SysException ex)
             {
-                // 忽略删除错误
+                Logger.LogWarning(ex, "删除已存在的数据源失败: {Path}", path);
             }
 
         OgrDataSource? dataSource = null;
@@ -120,11 +123,11 @@ public class GdalWriter : ILayerWriter
 
                     // 添加要素到图层
                     if (ogrLayer.CreateFeature(ogrFeature) != 0)
-                        Console.WriteLine($"Warning: Failed to create feature {oguFeature.Fid}");
+                        Logger.LogWarning("创建要素失败 (Fid={Fid})", oguFeature.Fid);
                 }
                 catch (SysException ex)
                 {
-                    Console.WriteLine($"Warning: Error writing feature {oguFeature?.Fid}: {ex.Message}");
+                    Logger.LogWarning(ex, "写入要素时出错 (Fid={Fid})", oguFeature?.Fid);
                 }
                 finally
                 {

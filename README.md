@@ -201,6 +201,19 @@ foreach (var driver in drivers)
 }
 ```
 
+#### Logging (Optional)
+
+By default the library produces no log output. To receive internal diagnostics
+(e.g. features that fail to write, coordinate lines that fail to parse — cases
+that were previously silently ignored), configure a logger factory at startup:
+
+```csharp
+using Microsoft.Extensions.Logging;
+using OpenGIS.Utils.Configuration;
+
+OguLogging.LoggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+```
+
 ### API Reference
 
 All public APIs are fully documented with XML documentation comments including:
@@ -498,6 +511,18 @@ foreach (var driver in drivers)
 {
     Console.WriteLine($"- {driver}");
 }
+```
+
+#### 日志（可选）
+
+默认情况下本库不产生任何日志输出。如需接收内部诊断信息（例如写入失败的要素、
+解析失败的坐标行——这些情况过去被静默忽略），可在应用启动时配置日志工厂：
+
+```csharp
+using Microsoft.Extensions.Logging;
+using OpenGIS.Utils.Configuration;
+
+OguLogging.LoggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
 ```
 
 ### API 参考

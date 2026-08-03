@@ -476,7 +476,9 @@ public static class GeometryUtil
         ring.AddPoint_2D(envelope.MinX, envelope.MinY);
 
         var polygon = new OgrGeometry(wkbGeometryType.wkbPolygon);
+        // AddGeometry 会克隆传入的几何，因此需要释放临时的 ring 以避免原生内存泄漏
         polygon.AddGeometry(ring);
+        ring.Dispose();
 
         return polygon;
     }
