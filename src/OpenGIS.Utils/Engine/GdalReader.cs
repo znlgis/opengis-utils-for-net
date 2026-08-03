@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
 using OpenGIS.Utils.Configuration;
 using OpenGIS.Utils.Engine.Enums;
 using OpenGIS.Utils.Engine.IO;
@@ -15,6 +16,8 @@ namespace OpenGIS.Utils.Engine;
 /// </summary>
 public class GdalReader : ILayerReader
 {
+    private static readonly ILogger Logger = OguLogging.CreateLogger<GdalReader>();
+
     static GdalReader()
     {
         // 确保 GDAL 已初始化
@@ -132,9 +135,10 @@ public class GdalReader : ILayerReader
                 using var filterGeom = OSGeo.OGR.Geometry.CreateFromWkt(spatialFilterWkt);
                 if (filterGeom != null) ogrLayer.SetSpatialFilter(filterGeom);
             }
-            catch
+            catch (SysException ex)
             {
-                // 忽略空间过滤错误
+                // 空间过滤几何无效时忽略过滤，但记录诊断信息
+                Logger.LogWarning(ex, "空间过滤 WKT 无效，已忽略空间过滤: {Wkt}", spatialFilterWkt);
             }
 
         // 读取要素
@@ -196,8 +200,9 @@ public class GdalReader : ILayerReader
                 out int hour, out int minute, out float second, out int tzFlag);
             return new DateTime(year, month, day, hour, minute, (int)second);
         }
-        catch
+        catch (SysException ex)
         {
+            Logger.LogDebug(ex, "解析日期时间字段失败 (fieldIndex={FieldIndex})", fieldIndex);
             return null;
         }
     }

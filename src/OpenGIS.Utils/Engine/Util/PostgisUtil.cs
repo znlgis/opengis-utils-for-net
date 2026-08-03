@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
 using OpenGIS.Utils.Configuration;
 using OpenGIS.Utils.Engine.Model.Layer;
 
@@ -10,6 +11,8 @@ namespace OpenGIS.Utils.Engine.Util;
 /// </summary>
 public static class PostgisUtil
 {
+    private static readonly ILogger Logger = OguLogging.CreateLogger("OpenGIS.Utils.Engine.Util.PostgisUtil");
+
     /// <summary>
     ///     读取 PostGIS 表
     /// </summary>
@@ -67,8 +70,9 @@ public static class PostgisUtil
             var layerNames = reader.GetLayerNames(connectionString);
             return layerNames.Contains(tableName);
         }
-        catch
+        catch (System.Exception ex)
         {
+            Logger.LogWarning(ex, "检查表是否存在时出错，返回 false (table={TableName})", tableName);
             return false;
         }
     }

@@ -4,6 +4,8 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Logging;
+using OpenGIS.Utils.Configuration;
 using OpenGIS.Utils.Engine.Enums;
 using OpenGIS.Utils.Engine.Model.Layer;
 using OpenGIS.Utils.Utils;
@@ -15,6 +17,8 @@ namespace OpenGIS.Utils.DataSource;
 /// </summary>
 public static class GtTxtUtil
 {
+    private static readonly ILogger Logger = OguLogging.CreateLogger("OpenGIS.Utils.DataSource.GtTxtUtil");
+
     private static readonly Regex CoordinateLineRegex = new(
         @"^\s*(\S+)\s+(\S+)\s+([\d.]+)\s+([\d.]+)\s*([\d.]*)\s*(.*?)$",
         RegexOptions.Compiled);
@@ -128,9 +132,10 @@ public static class GtTxtUtil
                 {
                     coordinate = OguCoordinate.FromWkt(feature.Wkt!);
                 }
-                catch
+                catch (System.Exception ex)
                 {
                     // 如果解析失败，跳过该要素
+                    Logger.LogDebug(ex, "解析要素 WKT 失败，已跳过 (Fid={Fid})", feature.Fid);
                     continue;
                 }
 
@@ -172,8 +177,9 @@ public static class GtTxtUtil
 
             return coordinate;
         }
-        catch
+        catch (System.Exception ex)
         {
+            Logger.LogDebug(ex, "解析 TXT 坐标行失败: {Line}", line);
             return null;
         }
     }
