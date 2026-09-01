@@ -168,6 +168,9 @@ public static class GeometryUtil
     /// <summary>
     ///     判断两个几何对象是否接触
     /// </summary>
+    /// <param name="a">第一个几何对象</param>
+    /// <param name="b">第二个几何对象</param>
+    /// <returns>如果接触返回 true，否则返回 false</returns>
     public static bool Touches(OgrGeometry a, OgrGeometry b)
     {
         if (a == null || b == null) return false;
@@ -177,6 +180,9 @@ public static class GeometryUtil
     /// <summary>
     ///     判断两个几何对象是否交叉
     /// </summary>
+    /// <param name="a">第一个几何对象</param>
+    /// <param name="b">第二个几何对象</param>
+    /// <returns>如果交叉返回 true，否则返回 false</returns>
     public static bool Crosses(OgrGeometry a, OgrGeometry b)
     {
         if (a == null || b == null) return false;
@@ -186,6 +192,9 @@ public static class GeometryUtil
     /// <summary>
     ///     判断两个几何对象是否重叠
     /// </summary>
+    /// <param name="a">第一个几何对象</param>
+    /// <param name="b">第二个几何对象</param>
+    /// <returns>如果重叠返回 true，否则返回 false</returns>
     public static bool Overlaps(OgrGeometry a, OgrGeometry b)
     {
         if (a == null || b == null) return false;
@@ -195,6 +204,9 @@ public static class GeometryUtil
     /// <summary>
     ///     判断两个几何对象是否不相交
     /// </summary>
+    /// <param name="a">第一个几何对象</param>
+    /// <param name="b">第二个几何对象</param>
+    /// <returns>如果不相交返回 true，否则返回 false</returns>
     public static bool Disjoint(OgrGeometry a, OgrGeometry b)
     {
         if (a == null || b == null) return true;
@@ -371,6 +383,9 @@ public static class GeometryUtil
     /// <summary>
     ///     获取内部点
     /// </summary>
+    /// <param name="geom">几何对象</param>
+    /// <returns>几何内部的一个点</returns>
+    /// <exception cref="ArgumentNullException">当几何对象为 null 时抛出</exception>
     public static OgrGeometry InteriorPoint(OgrGeometry geom)
     {
         if (geom == null)
@@ -382,6 +397,9 @@ public static class GeometryUtil
     /// <summary>
     ///     获取几何维度
     /// </summary>
+    /// <param name="geom">几何对象</param>
+    /// <returns>几何维度（0 为点，1 为线，2 为面）</returns>
+    /// <exception cref="ArgumentNullException">当几何对象为 null 时抛出</exception>
     public static int Dimension(OgrGeometry geom)
     {
         if (geom == null)
@@ -393,6 +411,9 @@ public static class GeometryUtil
     /// <summary>
     ///     获取点数量
     /// </summary>
+    /// <param name="geom">几何对象</param>
+    /// <returns>几何对象包含的点数量</returns>
+    /// <exception cref="ArgumentNullException">当几何对象为 null 时抛出</exception>
     public static int NumPoints(OgrGeometry geom)
     {
         if (geom == null)
@@ -404,6 +425,9 @@ public static class GeometryUtil
     /// <summary>
     ///     获取几何类型
     /// </summary>
+    /// <param name="geom">几何对象</param>
+    /// <returns>几何类型</returns>
+    /// <exception cref="ArgumentNullException">当几何对象为 null 时抛出</exception>
     public static OguGeometryType GetGeometryType(OgrGeometry geom)
     {
         if (geom == null)
@@ -435,6 +459,8 @@ public static class GeometryUtil
     /// <summary>
     ///     判断是否为空几何
     /// </summary>
+    /// <param name="geom">几何对象</param>
+    /// <returns>如果为空几何返回 true，否则返回 false</returns>
     public static bool IsEmpty(OgrGeometry geom)
     {
         if (geom == null) return true;
@@ -448,6 +474,9 @@ public static class GeometryUtil
     /// <summary>
     ///     获取边界
     /// </summary>
+    /// <param name="geom">几何对象</param>
+    /// <returns>几何对象的边界</returns>
+    /// <exception cref="ArgumentNullException">当几何对象为 null 时抛出</exception>
     public static OgrGeometry Boundary(OgrGeometry geom)
     {
         if (geom == null)
@@ -459,6 +488,9 @@ public static class GeometryUtil
     /// <summary>
     ///     获取外包矩形
     /// </summary>
+    /// <param name="geom">几何对象</param>
+    /// <returns>外包矩形多边形</returns>
+    /// <exception cref="ArgumentNullException">当几何对象为 null 时抛出</exception>
     public static OgrGeometry Envelope(OgrGeometry geom)
     {
         if (geom == null)
@@ -486,6 +518,9 @@ public static class GeometryUtil
     /// <summary>
     ///     凸包
     /// </summary>
+    /// <param name="geom">几何对象</param>
+    /// <returns>几何对象的凸包</returns>
+    /// <exception cref="ArgumentNullException">当几何对象为 null 时抛出</exception>
     public static OgrGeometry ConvexHull(OgrGeometry geom)
     {
         if (geom == null)
@@ -513,6 +548,10 @@ public static class GeometryUtil
     /// <summary>
     ///     密化几何（增加顶点）
     /// </summary>
+    /// <param name="geom">几何对象</param>
+    /// <param name="distanceTolerance">顶点间距容差</param>
+    /// <returns>密化后的几何对象</returns>
+    /// <exception cref="ArgumentNullException">当几何对象为 null 时抛出</exception>
     public static OgrGeometry Densify(OgrGeometry geom, double distanceTolerance)
     {
         if (geom == null)
@@ -531,6 +570,9 @@ public static class GeometryUtil
     /// <summary>
     ///     验证几何有效性
     /// </summary>
+    /// <param name="geom">几何对象</param>
+    /// <returns>验证结果</returns>
+    /// <exception cref="ArgumentNullException">当几何对象为 null 时抛出</exception>
     /// <remarks>
     ///     Note: GDAL/OGR provides less detailed validation error information
     ///     compared to NetTopologySuite. Error types and locations are not
@@ -555,6 +597,9 @@ public static class GeometryUtil
     /// <summary>
     ///     判断是否为简单几何
     /// </summary>
+    /// <param name="geom">几何对象</param>
+    /// <returns>简单性判断结果</returns>
+    /// <exception cref="ArgumentNullException">当几何对象为 null 时抛出</exception>
     public static SimpleGeometryResult IsSimple(OgrGeometry geom)
     {
         if (geom == null)
@@ -574,6 +619,9 @@ public static class GeometryUtil
     /// <summary>
     ///     精确比较（坐标完全相同）
     /// </summary>
+    /// <param name="a">第一个几何对象</param>
+    /// <param name="b">第二个几何对象</param>
+    /// <returns>如果坐标完全相同返回 true，否则返回 false</returns>
     public static bool EqualsExact(OgrGeometry a, OgrGeometry b)
     {
         if (a == null && b == null) return true;
@@ -584,6 +632,10 @@ public static class GeometryUtil
     /// <summary>
     ///     精确比较（带容差）
     /// </summary>
+    /// <param name="a">第一个几何对象</param>
+    /// <param name="b">第二个几何对象</param>
+    /// <param name="tolerance">比较容差</param>
+    /// <returns>如果两个几何对象在容差范围内返回 true，否则返回 false</returns>
     /// <remarks>
     ///     Note: OGR doesn't have direct tolerance-based geometry comparison.
     ///     This implementation uses distance as an approximation, which may differ
@@ -601,6 +653,9 @@ public static class GeometryUtil
     /// <summary>
     ///     拓扑相等
     /// </summary>
+    /// <param name="a">第一个几何对象</param>
+    /// <param name="b">第二个几何对象</param>
+    /// <returns>如果拓扑相等返回 true，否则返回 false</returns>
     public static bool EqualsTopo(OgrGeometry a, OgrGeometry b)
     {
         if (a == null && b == null) return true;
@@ -615,6 +670,10 @@ public static class GeometryUtil
     /// <summary>
     ///     计算两个几何对象之间的距离
     /// </summary>
+    /// <param name="a">第一个几何对象</param>
+    /// <param name="b">第二个几何对象</param>
+    /// <returns>两个几何对象之间的最小距离</returns>
+    /// <exception cref="ArgumentNullException">当任一几何对象为 null 时抛出</exception>
     public static double Distance(OgrGeometry a, OgrGeometry b)
     {
         if (a == null || b == null)
@@ -626,6 +685,10 @@ public static class GeometryUtil
     /// <summary>
     ///     判断两个几何对象之间的距离是否在指定范围内
     /// </summary>
+    /// <param name="a">第一个几何对象</param>
+    /// <param name="b">第二个几何对象</param>
+    /// <param name="maxDistance">最大距离</param>
+    /// <returns>如果距离不超过最大距离返回 true，否则返回 false</returns>
     public static bool IsWithinDistance(OgrGeometry a, OgrGeometry b, double maxDistance)
     {
         if (a == null || b == null) return false;
@@ -639,6 +702,9 @@ public static class GeometryUtil
     /// <summary>
     ///     基于 WKT 的相交判断
     /// </summary>
+    /// <param name="wktA">第一个几何的 WKT</param>
+    /// <param name="wktB">第二个几何的 WKT</param>
+    /// <returns>如果相交返回 true，否则返回 false</returns>
     public static bool IntersectsWkt(string wktA, string wktB)
     {
         using var geomA = Wkt2Geometry(wktA);
@@ -649,6 +715,9 @@ public static class GeometryUtil
     /// <summary>
     ///     基于 WKT 的包含判断
     /// </summary>
+    /// <param name="wktA">第一个几何的 WKT</param>
+    /// <param name="wktB">第二个几何的 WKT</param>
+    /// <returns>如果 wktA 包含 wktB 返回 true，否则返回 false</returns>
     public static bool ContainsWkt(string wktA, string wktB)
     {
         using var geomA = Wkt2Geometry(wktA);
@@ -659,6 +728,9 @@ public static class GeometryUtil
     /// <summary>
     ///     基于 WKT 的缓冲区分析
     /// </summary>
+    /// <param name="wkt">几何的 WKT</param>
+    /// <param name="distance">缓冲距离</param>
+    /// <returns>缓冲后的几何 WKT</returns>
     public static string BufferWkt(string wkt, double distance)
     {
         using var geom = Wkt2Geometry(wkt);
@@ -669,6 +741,9 @@ public static class GeometryUtil
     /// <summary>
     ///     基于 WKT 的交集
     /// </summary>
+    /// <param name="wktA">第一个几何的 WKT</param>
+    /// <param name="wktB">第二个几何的 WKT</param>
+    /// <returns>两个几何交集的 WKT</returns>
     public static string IntersectionWkt(string wktA, string wktB)
     {
         using var geomA = Wkt2Geometry(wktA);
@@ -680,6 +755,10 @@ public static class GeometryUtil
     /// <summary>
     ///     基于 WKT 的并集
     /// </summary>
+    /// <param name="wktList">几何 WKT 集合</param>
+    /// <returns>合并后的几何 WKT</returns>
+    /// <exception cref="ArgumentNullException">当 WKT 集合为 null 时抛出</exception>
+    /// <exception cref="ArgumentException">当 WKT 集合为空时抛出</exception>
     public static string UnionWkt(IEnumerable<string> wktList)
     {
         if (wktList == null)
@@ -712,6 +791,8 @@ public static class GeometryUtil
     /// <summary>
     ///     基于 WKT 的面积计算
     /// </summary>
+    /// <param name="wkt">几何的 WKT</param>
+    /// <returns>面积值</returns>
     public static double AreaWkt(string wkt)
     {
         using var geom = Wkt2Geometry(wkt);
@@ -721,6 +802,8 @@ public static class GeometryUtil
     /// <summary>
     ///     基于 WKT 的长度计算
     /// </summary>
+    /// <param name="wkt">几何的 WKT</param>
+    /// <returns>长度值</returns>
     public static double LengthWkt(string wkt)
     {
         using var geom = Wkt2Geometry(wkt);
@@ -730,6 +813,8 @@ public static class GeometryUtil
     /// <summary>
     ///     基于 WKT 的质心计算
     /// </summary>
+    /// <param name="wkt">几何的 WKT</param>
+    /// <returns>质心点的 WKT</returns>
     public static string CentroidWkt(string wkt)
     {
         using var geom = Wkt2Geometry(wkt);
@@ -740,6 +825,9 @@ public static class GeometryUtil
     /// <summary>
     ///     基于 WKT 的简化
     /// </summary>
+    /// <param name="wkt">几何的 WKT</param>
+    /// <param name="tolerance">简化容差</param>
+    /// <returns>简化后的几何 WKT</returns>
     public static string SimplifyWkt(string wkt, double tolerance)
     {
         using var geom = Wkt2Geometry(wkt);

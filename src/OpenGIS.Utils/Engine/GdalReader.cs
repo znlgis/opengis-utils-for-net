@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using Microsoft.Extensions.Logging;
 using OpenGIS.Utils.Configuration;
 using OpenGIS.Utils.Engine.Enums;
@@ -40,6 +41,9 @@ public class GdalReader : ILayerReader
     {
         if (string.IsNullOrWhiteSpace(path))
             throw new ArgumentException("Path cannot be null or empty", nameof(path));
+
+        // 应用编码选项（如 SHAPE_ENCODING），确保 GBK 等编码正确读取
+        ApplyEncodingOption(options);
 
         OgrDataSource? dataSource = null;
         try
@@ -113,7 +117,7 @@ public class GdalReader : ILayerReader
             var field = new OguField
             {
                 Name = fieldDefn.GetName(),
-                DataType = MapOgrFieldType(fieldDefn.GetFieldType()),
+                DataType = OgrTypeMapper.MapOgrFieldType(fieldDefn.GetFieldType()),
                 Length = fieldDefn.GetWidth(),
                 Precision = fieldDefn.GetPrecision()
             };
@@ -122,7 +126,7 @@ public class GdalReader : ILayerReader
 
         // 确定几何类型
         var geomType = ogrLayer.GetGeomType();
-        layer.GeometryType = MapOgrGeometryType(geomType);
+        layer.GeometryType = OgrTypeMapper.MapOgrGeometryType(geomType);
 
         // 应用属性过滤
         if (!string.IsNullOrWhiteSpace(attributeFilter))
@@ -140,6 +144,14 @@ public class GdalReader : ILayerReader
                 // 空间过滤几何无效时忽略过滤，但记录诊断信息
                 Logger.LogWarning(ex, "空间过滤 WKT 无效，已忽略空间过滤: {Wkt}", spatialFilterWkt);
             }
+
+        // 预计算字段索引映射，避免在要素循环内重复调用 GetFieldIndex
+        var fieldIndexMap = new Dictionary<string, int>(layer.Fields.Count);
+        foreach (var field in layer.Fields)
+        {
+            var index = ogrLayer.GetLayerDefn().GetFieldIndex(field.Name);
+            if (index >= 0) fieldIndexMap[field.Name] = index;
+        }
 
         // 读取要素
         int fid = 1;
@@ -162,8 +174,7 @@ public class GdalReader : ILayerReader
                 // 读取属性
                 foreach (var field in layer.Fields)
                 {
-                    var fieldIndex = ogrFeature.GetFieldIndex(field.Name);
-                    if (fieldIndex >= 0)
+                    if (fieldIndexMap.TryGetValue(field.Name, out var fieldIndex))
                     {
                         var value = GetFieldValue(ogrFeature, fieldIndex, field.DataType);
                         feature.SetValue(field.Name, value);
@@ -174,6 +185,15 @@ public class GdalReader : ILayerReader
             }
 
         return layer;
+    }
+
+    private static void ApplyEncodingOption(Dictionary<string, object>? options)
+    {
+        if (options == null || !options.TryGetValue("encoding", out var encodingObj) || encodingObj == null)
+            return;
+
+        var encoding = encodingObj as Encoding ?? Encoding.GetEncoding(encodingObj.ToString() ?? "UTF-8");
+        OSGeo.GDAL.Gdal.SetConfigOption("SHAPE_ENCODING", encoding.WebName);
     }
 
     private object? GetFieldValue(Feature feature, int fieldIndex, FieldDataType dataType)
@@ -205,51 +225,5 @@ public class GdalReader : ILayerReader
             Logger.LogDebug(ex, "解析日期时间字段失败 (fieldIndex={FieldIndex})", fieldIndex);
             return null;
         }
-    }
-
-    private FieldDataType MapOgrFieldType(FieldType ogrType)
-    {
-        return ogrType switch
-        {
-            FieldType.OFTInteger => FieldDataType.INTEGER,
-            FieldType.OFTInteger64 => FieldDataType.LONG,
-            FieldType.OFTReal => FieldDataType.DOUBLE,
-            FieldType.OFTString => FieldDataType.STRING,
-            FieldType.OFTDate => FieldDataType.DATE,
-            FieldType.OFTDateTime => FieldDataType.DATETIME,
-            FieldType.OFTBinary => FieldDataType.BINARY,
-            _ => FieldDataType.STRING
-        };
-    }
-
-    private GeometryType MapOgrGeometryType(wkbGeometryType geomType)
-    {
-        var flatType = wkbFlatten((int)geomType);
-
-        return flatType switch
-        {
-            wkbGeometryType.wkbPoint => GeometryType.POINT,
-            wkbGeometryType.wkbLineString => GeometryType.LINESTRING,
-            wkbGeometryType.wkbPolygon => GeometryType.POLYGON,
-            wkbGeometryType.wkbMultiPoint => GeometryType.MULTIPOINT,
-            wkbGeometryType.wkbMultiLineString => GeometryType.MULTILINESTRING,
-            wkbGeometryType.wkbMultiPolygon => GeometryType.MULTIPOLYGON,
-            wkbGeometryType.wkbGeometryCollection => GeometryType.GEOMETRYCOLLECTION,
-            _ => GeometryType.UNKNOWN
-        };
-    }
-
-    private wkbGeometryType wkbFlatten(int geomType)
-    {
-        // Remove 25D bit
-        var flatType = (int)((uint)geomType & 0x7FFFFFFFu);
-        // Handle Z (1000-1999), M (2000-2999), ZM (3000-3999) offsets
-        if (flatType >= 1000 && flatType < 2000)
-            return (wkbGeometryType)(flatType - 1000);
-        if (flatType >= 2000 && flatType < 3000)
-            return (wkbGeometryType)(flatType - 2000);
-        if (flatType >= 3000 && flatType < 4000)
-            return (wkbGeometryType)(flatType - 3000);
-        return (wkbGeometryType)flatType;
     }
 }

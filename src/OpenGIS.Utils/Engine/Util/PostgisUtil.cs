@@ -16,6 +16,11 @@ public static class PostgisUtil
     /// <summary>
     ///     读取 PostGIS 表
     /// </summary>
+    /// <param name="connectionString">PostgreSQL 连接字符串</param>
+    /// <param name="tableName">表名</param>
+    /// <param name="filter">属性过滤条件，可为 null</param>
+    /// <returns>图层对象</returns>
+    /// <exception cref="ArgumentException">当连接字符串或表名为空时抛出</exception>
     public static OguLayer ReadPostGIS(string connectionString, string tableName, string? filter = null)
     {
         if (string.IsNullOrWhiteSpace(connectionString))
@@ -35,6 +40,11 @@ public static class PostgisUtil
     /// <summary>
     ///     写入 PostGIS 表
     /// </summary>
+    /// <param name="layer">图层对象</param>
+    /// <param name="connectionString">PostgreSQL 连接字符串</param>
+    /// <param name="tableName">表名</param>
+    /// <exception cref="ArgumentNullException">当图层为 null 时抛出</exception>
+    /// <exception cref="ArgumentException">当连接字符串或表名为空时抛出</exception>
     public static void WritePostGIS(OguLayer layer, string connectionString, string tableName)
     {
         if (layer == null)
@@ -56,6 +66,10 @@ public static class PostgisUtil
     /// <summary>
     ///     判断表是否存在
     /// </summary>
+    /// <param name="connectionString">PostgreSQL 连接字符串</param>
+    /// <param name="tableName">表名</param>
+    /// <returns>如果表存在返回 true，否则返回 false</returns>
+    /// <exception cref="ArgumentException">当连接字符串或表名为空时抛出</exception>
     public static bool TableExists(string connectionString, string tableName)
     {
         if (string.IsNullOrWhiteSpace(connectionString))
@@ -80,6 +94,12 @@ public static class PostgisUtil
     /// <summary>
     ///     创建空间索引
     /// </summary>
+    /// <param name="connectionString">PostgreSQL 连接字符串</param>
+    /// <param name="tableName">表名</param>
+    /// <param name="geomColumn">几何列名，默认为 "geom"</param>
+    /// <exception cref="ArgumentException">当连接字符串或表名为空时抛出</exception>
+    /// <exception cref="NotSupportedException">始终抛出，需要直接数据库访问</exception>
+    /// <remarks>空间索引创建需要直接数据库访问，请使用 PostgreSQL 客户端执行 GIST 索引 SQL</remarks>
     public static void CreateSpatialIndex(string connectionString, string tableName, string geomColumn = "geom")
     {
         if (string.IsNullOrWhiteSpace(connectionString))

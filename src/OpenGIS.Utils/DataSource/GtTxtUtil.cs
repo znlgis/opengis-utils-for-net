@@ -26,6 +26,10 @@ public static class GtTxtUtil
     /// <summary>
     ///     加载 TXT 文件
     /// </summary>
+    /// <param name="txtPath">TXT 文件路径</param>
+    /// <param name="encoding">字符编码，如果为 null 则自动检测</param>
+    /// <returns>图层对象</returns>
+    /// <exception cref="FileNotFoundException">当文件不存在时抛出</exception>
     public static OguLayer LoadTxt(string txtPath, Encoding? encoding = null)
     {
         if (!File.Exists(txtPath))
@@ -87,6 +91,13 @@ public static class GtTxtUtil
     /// <summary>
     ///     保存 TXT 文件
     /// </summary>
+    /// <param name="layer">图层对象</param>
+    /// <param name="txtPath">输出 TXT 文件路径</param>
+    /// <param name="metadata">元数据，如果为 null 则使用图层元数据</param>
+    /// <param name="encoding">字符编码，如果为 null 则使用 UTF-8</param>
+    /// <param name="zoneNumber">带号，用于格式化坐标，默认为 0</param>
+    /// <exception cref="ArgumentNullException">当图层为 null 时抛出</exception>
+    /// <exception cref="ArgumentException">当路径为空时抛出</exception>
     public static void SaveTxt(
         OguLayer layer,
         string txtPath,
@@ -152,6 +163,8 @@ public static class GtTxtUtil
     /// <summary>
     ///     解析 TXT 坐标行
     /// </summary>
+    /// <param name="line">坐标行文本</param>
+    /// <returns>解析出的坐标对象，如果无法解析则返回 null</returns>
     public static OguCoordinate? ParseTxtLine(string line)
     {
         if (string.IsNullOrWhiteSpace(line))
@@ -187,6 +200,10 @@ public static class GtTxtUtil
     /// <summary>
     ///     格式化 TXT 坐标行
     /// </summary>
+    /// <param name="coordinate">坐标对象</param>
+    /// <param name="zoneNumber">带号</param>
+    /// <returns>格式化后的坐标行文本</returns>
+    /// <exception cref="ArgumentNullException">当坐标为 null 时抛出</exception>
     public static string FormatTxtLine(OguCoordinate coordinate, int zoneNumber)
     {
         if (coordinate == null)

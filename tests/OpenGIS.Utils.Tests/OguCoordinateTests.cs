@@ -4,6 +4,7 @@ using System.Globalization;
 
 namespace OpenGIS.Utils.Tests;
 
+[Collection("CultureSensitive")]
 public class OguCoordinateTests
 {
     [Fact]

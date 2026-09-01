@@ -39,6 +39,9 @@ public class OguFieldValueTests
 
     [Theory]
     [InlineData(42, 42)]
+    [InlineData(0, 0)]
+    [InlineData(-7, -7)]
+    [InlineData(int.MaxValue, int.MaxValue)]
     public void GetIntValue_WithInt_ReturnsValue(int input, int expected)
     {
         var fv = new OguFieldValue(input);

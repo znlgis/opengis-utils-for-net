@@ -216,7 +216,7 @@ OguLogging.LoggerFactory = LoggerFactory.Create(builder => builder.AddConsole())
 
 ### API Reference
 
-All public APIs are fully documented with XML documentation comments including:
+Public APIs are documented with XML documentation comments including:
 - Detailed parameter descriptions
 - Return value explanations  
 - Exception conditions
@@ -277,12 +277,12 @@ OpenGIS.Utils/
 
 ### Dependencies
 
-- **[MaxRev.Gdal.Core](https://github.com/MaxRev-Dev/gdal.netcore)** 3.12.0+ - GDAL/OGR bindings
-- **[MaxRev.Gdal.Universal](https://github.com/MaxRev-Dev/gdal.netcore)** 3.12.0+ - Cross-platform GDAL runtime
-- **[System.Text.Json](https://www.nuget.org/packages/System.Text.Json)** 10.0.0 - JSON serialization
-- **[System.Text.Encoding.CodePages](https://www.nuget.org/packages/System.Text.Encoding.CodePages)** 10.0.0 - Encoding support (GBK, GB2312)
+- **[MaxRev.Gdal.Core](https://github.com/MaxRev-Dev/gdal.netcore)** 3.13.3+ - GDAL/OGR bindings
+- **[MaxRev.Gdal.Universal](https://github.com/MaxRev-Dev/gdal.netcore)** 3.13.3+ - Cross-platform GDAL runtime
+- **[System.Text.Json](https://www.nuget.org/packages/System.Text.Json)** 10.0.11 - JSON serialization
+- **[System.Text.Encoding.CodePages](https://www.nuget.org/packages/System.Text.Encoding.CodePages)** 10.0.11 - Encoding support (GBK, GB2312)
 - **[SharpZipLib](https://github.com/icsharpcode/SharpZipLib)** 1.4.2 - ZIP compression
-- **[Microsoft.Extensions.Logging.Abstractions](https://www.nuget.org/packages/Microsoft.Extensions.Logging.Abstractions)** 10.0.0 - Logging
+- **[Microsoft.Extensions.Logging.Abstractions](https://www.nuget.org/packages/Microsoft.Extensions.Logging.Abstractions)** 10.0.11 - Logging
 
 ### Requirements
 
@@ -291,7 +291,7 @@ OpenGIS.Utils/
 
 ### Documentation
 
-All public APIs include comprehensive XML documentation with:
+Public APIs include XML documentation with:
 - **Parameter descriptions** - Clear explanation of each parameter
 - **Return values** - What the method returns
 - **Exceptions** - When and why exceptions are thrown

@@ -31,17 +31,17 @@
 
   <ItemGroup>
     <!-- GDAL 依赖（跨平台） -->
-    <PackageReference Include="MaxRev.Gdal.Core" Version="3.12.0.427" />
-    <PackageReference Include="MaxRev.Gdal.Universal" Version="3.12.0.427" />
+    <PackageReference Include="MaxRev.Gdal.Core" Version="3.13.3.557" />
+    <PackageReference Include="MaxRev.Gdal.Universal" Version="3.13.3.557" />
     
     <!-- JSON 处理 -->
-    <PackageReference Include="System.Text.Json" Version="10.0.0" />
+    <PackageReference Include="System.Text.Json" Version="10.0.11" />
     
     <!-- 编码支持 -->
-    <PackageReference Include="System.Text.Encoding.CodePages" Version="10.0.0" />
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="10.0.11" />
     
     <!-- 日志抽象 -->
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.11" />
     
     <!-- 内存和性能 -->
     <PackageReference Include="System.Memory" Version="4.6.3" />

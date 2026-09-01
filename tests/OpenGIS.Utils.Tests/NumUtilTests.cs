@@ -34,8 +34,7 @@ public class NumUtilTests
     {
         var result = NumUtil.GetPlainString(double.PositiveInfinity);
 
-        // InvariantCulture produces "∞" or "Infinity"
-        result.Should().NotBeEmpty();
+        result.Should().Be("Infinity");
     }
 
     [Fact]
@@ -43,7 +42,7 @@ public class NumUtilTests
     {
         var result = NumUtil.GetPlainString(double.NegativeInfinity);
 
-        result.Should().NotBeEmpty();
+        result.Should().Be("-Infinity");
     }
 
     [Fact]

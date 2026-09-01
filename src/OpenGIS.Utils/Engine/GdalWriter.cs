@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using Microsoft.Extensions.Logging;
 using OpenGIS.Utils.Configuration;
 using OpenGIS.Utils.Engine.Enums;
@@ -74,12 +75,13 @@ public class GdalWriter : ILayerWriter
                 throw new SysException($"Failed to create data source: {path}");
 
             // 创建图层
-            var ogrGeomType = MapToOgrGeometryType(layer.GeometryType);
+            var ogrGeomType = OgrTypeMapper.MapToOgrGeometryType(layer.GeometryType);
+            var layerOptions = BuildLayerOptions(options);
             var ogrLayer = dataSource.CreateLayer(
                 layerName ?? layer.Name ?? "layer",
                 null,
                 ogrGeomType,
-                new string[] { });
+                layerOptions);
 
             if (ogrLayer == null)
                 throw new SysException("Failed to create layer");
@@ -87,12 +89,20 @@ public class GdalWriter : ILayerWriter
             // 创建字段
             foreach (var field in layer.Fields)
             {
-                var fieldDefn = CreateOgrFieldDefn(field);
+                using var fieldDefn = CreateOgrFieldDefn(field);
                 ogrLayer.CreateField(fieldDefn, 1);
-                fieldDefn.Dispose();
+            }
+
+            // 预计算字段索引映射，避免在要素循环内重复调用 GetFieldIndex
+            var fieldIndexMap = new Dictionary<string, int>(layer.Fields.Count);
+            foreach (var field in layer.Fields)
+            {
+                var index = ogrLayer.GetLayerDefn().GetFieldIndex(field.Name);
+                if (index >= 0) fieldIndexMap[field.Name] = index;
             }
 
             // 写入要素
+            int failedCount = 0;
             foreach (var oguFeature in layer.Features)
             {
                 if (string.IsNullOrWhiteSpace(oguFeature.Wkt))
@@ -113,8 +123,7 @@ public class GdalWriter : ILayerWriter
                     // 设置属性
                     foreach (var field in layer.Fields)
                     {
-                        var fieldIndex = ogrFeature.GetFieldIndex(field.Name);
-                        if (fieldIndex >= 0)
+                        if (fieldIndexMap.TryGetValue(field.Name, out var fieldIndex))
                         {
                             var value = oguFeature.GetValue(field.Name);
                             SetFieldValue(ogrFeature, fieldIndex, value, field.DataType);
@@ -123,11 +132,15 @@ public class GdalWriter : ILayerWriter
 
                     // 添加要素到图层
                     if (ogrLayer.CreateFeature(ogrFeature) != 0)
+                    {
+                        failedCount++;
                         Logger.LogWarning("创建要素失败 (Fid={Fid})", oguFeature.Fid);
+                    }
                 }
                 catch (SysException ex)
                 {
-                    Logger.LogWarning(ex, "写入要素时出错 (Fid={Fid})", oguFeature?.Fid);
+                    failedCount++;
+                    Logger.LogWarning(ex, "写入要素时出错 (Fid={Fid})", oguFeature.Fid);
                 }
                 finally
                 {
@@ -138,11 +151,23 @@ public class GdalWriter : ILayerWriter
 
             // 同步到磁盘
             dataSource.SyncToDisk();
+
+            if (failedCount > 0)
+                throw new SysException($"写入图层时 {failedCount} 个要素失败: {path}");
         }
         finally
         {
             dataSource?.Dispose();
         }
+    }
+
+    private static string[] BuildLayerOptions(Dictionary<string, object>? options)
+    {
+        if (options == null || !options.TryGetValue("encoding", out var encodingObj) || encodingObj == null)
+            return Array.Empty<string>();
+
+        var encoding = encodingObj as Encoding ?? Encoding.GetEncoding(encodingObj.ToString() ?? "UTF-8");
+        return new[] { $"ENCODING={encoding.WebName}" };
     }
 
     /// <summary>
@@ -180,24 +205,9 @@ public class GdalWriter : ILayerWriter
         };
     }
 
-    private wkbGeometryType MapToOgrGeometryType(GeometryType geomType)
-    {
-        return geomType switch
-        {
-            GeometryType.POINT => wkbGeometryType.wkbPoint,
-            GeometryType.LINESTRING => wkbGeometryType.wkbLineString,
-            GeometryType.POLYGON => wkbGeometryType.wkbPolygon,
-            GeometryType.MULTIPOINT => wkbGeometryType.wkbMultiPoint,
-            GeometryType.MULTILINESTRING => wkbGeometryType.wkbMultiLineString,
-            GeometryType.MULTIPOLYGON => wkbGeometryType.wkbMultiPolygon,
-            GeometryType.GEOMETRYCOLLECTION => wkbGeometryType.wkbGeometryCollection,
-            _ => wkbGeometryType.wkbUnknown
-        };
-    }
-
     private FieldDefn CreateOgrFieldDefn(OguField field)
     {
-        var ogrType = MapToOgrFieldType(field.DataType);
+        var ogrType = OgrTypeMapper.MapToOgrFieldType(field.DataType);
         var fieldDefn = new FieldDefn(field.Name, ogrType);
 
         if (field.Length.HasValue && field.Length.Value > 0) fieldDefn.SetWidth(field.Length.Value);
@@ -205,21 +215,6 @@ public class GdalWriter : ILayerWriter
         if (field.Precision.HasValue && field.Precision.Value > 0) fieldDefn.SetPrecision(field.Precision.Value);
 
         return fieldDefn;
-    }
-
-    private FieldType MapToOgrFieldType(FieldDataType dataType)
-    {
-        return dataType switch
-        {
-            FieldDataType.INTEGER => FieldType.OFTInteger,
-            FieldDataType.LONG => FieldType.OFTInteger64,
-            FieldDataType.DOUBLE or FieldDataType.FLOAT => FieldType.OFTReal,
-            FieldDataType.STRING => FieldType.OFTString,
-            FieldDataType.DATE => FieldType.OFTDate,
-            FieldDataType.DATETIME => FieldType.OFTDateTime,
-            FieldDataType.BINARY => FieldType.OFTBinary,
-            _ => FieldType.OFTString
-        };
     }
 
     private void SetFieldValue(Feature feature, int fieldIndex, object? value, FieldDataType dataType)

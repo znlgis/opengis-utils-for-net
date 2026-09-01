@@ -70,7 +70,8 @@ public class ZipUtilTests : IDisposable
     [Fact]
     public void Zip_ThrowsOnNonexistentFolder()
     {
-        var act = () => ZipUtil.Zip("/nonexistent/folder", Path.Combine(_testDir, "out.zip"));
+        var missingDir = Path.Combine(_testDir, "does_not_exist");
+        var act = () => ZipUtil.Zip(missingDir, Path.Combine(_testDir, "out.zip"));
 
         act.Should().Throw<DirectoryNotFoundException>();
     }
@@ -78,7 +79,8 @@ public class ZipUtilTests : IDisposable
     [Fact]
     public void Unzip_ThrowsOnNonexistentFile()
     {
-        var act = () => ZipUtil.Unzip("/nonexistent/file.zip", _testDir);
+        var missingFile = Path.Combine(_testDir, "does_not_exist.zip");
+        var act = () => ZipUtil.Unzip(missingFile, _testDir);
 
         act.Should().Throw<FileNotFoundException>();
     }

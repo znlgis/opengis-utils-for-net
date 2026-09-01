@@ -15,6 +15,10 @@ public static class GdalCmdUtil
     /// <summary>
     ///     获取 GDB 数据结构
     /// </summary>
+    /// <param name="gdbPath">GDB 路径</param>
+    /// <returns>GDB 数据结构模型</returns>
+    /// <exception cref="ArgumentException">当路径为空时抛出</exception>
+    /// <exception cref="SysException">当无法打开 GDB 时抛出</exception>
     public static GdbGroupModel GetGdbDataStructure(string gdbPath)
     {
         if (string.IsNullOrWhiteSpace(gdbPath))
@@ -42,6 +46,9 @@ public static class GdalCmdUtil
     /// <summary>
     ///     执行 ogrinfo 命令
     /// </summary>
+    /// <param name="path">数据源路径</param>
+    /// <returns>ogrinfo 命令输出文本</returns>
+    /// <exception cref="ArgumentException">当路径为空时抛出</exception>
     public static string ExecuteOgrInfo(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -86,6 +93,10 @@ public static class GdalCmdUtil
     /// <summary>
     ///     执行 gdalinfo 命令
     /// </summary>
+    /// <param name="path">数据源路径</param>
+    /// <returns>gdalinfo 命令输出文本</returns>
+    /// <exception cref="ArgumentException">当路径为空时抛出</exception>
+    /// <remarks>gdalinfo 主要用于栅格数据，对于矢量数据实际委托给 <see cref="ExecuteOgrInfo"/></remarks>
     public static string ExecuteGdalInfo(string path)
     {
         if (string.IsNullOrWhiteSpace(path))

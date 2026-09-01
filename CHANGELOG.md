@@ -27,15 +27,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - DbConnBaseModel: Database connection model
   - GdbGroupModel: FileGDB group model
 - NuGet dependencies:
-  - NetTopologySuite 2.5.0
-  - NetTopologySuite.IO.GeoJSON 4.0.0
-  - NetTopologySuite.IO.ShapeFile 2.1.0
-  - MaxRev.Gdal.Core 3.9.2.259
-  - MaxRev.Gdal.Universal 3.9.2.259
-  - System.Text.Json 8.0.5
-  - System.Text.Encoding.CodePages 7.0.0
-  - Microsoft.Extensions.Logging.Abstractions 7.0.0
+  - MaxRev.Gdal.Core 3.13.3.557
+  - MaxRev.Gdal.Universal 3.13.3.557
+  - System.Text.Json 10.0.11
+  - System.Text.Encoding.CodePages 10.0.11
+  - Microsoft.Extensions.Logging.Abstractions 10.0.11
   - SharpZipLib 1.4.2
+  - System.Memory 4.6.3
+  - System.Buffers 4.6.1
 
 ### Changed
 - Replaced `Console.WriteLine` diagnostics in `GdalWriter` with structured logging.

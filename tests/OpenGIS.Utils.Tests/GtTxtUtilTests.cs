@@ -4,6 +4,7 @@ using OpenGIS.Utils.DataSource;
 
 namespace OpenGIS.Utils.Tests;
 
+[Collection("CultureSensitive")]
 public class GtTxtUtilTests
 {
     [Fact]
