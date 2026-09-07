@@ -216,6 +216,20 @@ public class GdalWriterTests : IDisposable
     }
 
     [Fact]
+    public void Write_ThrowsDataSourceExceptionWhenLongValueCannotBeConverted()
+    {
+        var layer = new OguLayer { Name = "points", GeometryType = GeometryType.POINT };
+        layer.AddField(new OguField { Name = "value", DataType = FieldDataType.LONG });
+        var feature = new OguFeature { Fid = 1, Wkt = "POINT (0 0)" };
+        feature.SetValue("value", "not-a-long");
+        layer.AddFeature(feature);
+
+        var act = () => new GdalWriter().Write(layer, Path.Combine(_testDir, "invalid-long.gpkg"));
+
+        act.Should().Throw<DataSourceException>().WithMessage("*1 个要素失败*");
+    }
+
+    [Fact]
     public void Append_MapsFieldsWithoutCaseSensitivity()
     {
         var path = Path.Combine(_testDir, "case-insensitive.gpkg");

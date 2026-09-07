@@ -1,8 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Extensions.Logging;
 using OpenGIS.Utils.Configuration;
 using OpenGIS.Utils.Engine.Model.Layer;
+using OpenGIS.Utils.Exception;
+using OSGeo.OGR;
 
 namespace OpenGIS.Utils.Engine.Util;
 
@@ -98,24 +101,38 @@ public static class PostgisUtil
     /// <param name="tableName">表名</param>
     /// <param name="geomColumn">几何列名，默认为 "geom"</param>
     /// <exception cref="ArgumentException">当连接字符串或表名为空时抛出</exception>
-    /// <exception cref="NotSupportedException">始终抛出，需要直接数据库访问</exception>
-    /// <remarks>空间索引创建需要直接数据库访问，请使用 PostgreSQL 客户端执行 GIST 索引 SQL</remarks>
+    /// <exception cref="DataSourceException">当 PostgreSQL 数据源或空间索引创建失败时抛出</exception>
     public static void CreateSpatialIndex(string connectionString, string tableName, string geomColumn = "geom")
     {
         if (string.IsNullOrWhiteSpace(connectionString))
             throw new ArgumentException("Connection string cannot be null or empty", nameof(connectionString));
         if (string.IsNullOrWhiteSpace(tableName))
             throw new ArgumentException("Table name cannot be null or empty", nameof(tableName));
+        ValidateIdentifier(tableName, nameof(tableName));
+        ValidateIdentifier(geomColumn, nameof(geomColumn));
 
-        // 空间索引创建需要直接执行 SQL
-        // 这里提供基本实现，实际使用时需要 Npgsql 或通过 GDAL ExecuteSQL
-        // 由于我们依赖 GDAL，可以使用 OGR 的 ExecuteSQL 功能
-        // 但这需要打开数据源并执行 SQL，这里提供简单的占位实现
+        GdalConfiguration.ConfigureGdal();
+        using var dataSource = Ogr.Open(connectionString, 1);
+        if (dataSource == null)
+            throw new DataSourceException("Failed to open PostgreSQL data source");
 
-        // 注意：实际的空间索引创建应该通过 PostgreSQL 客户端库执行
-        // CREATE INDEX idx_tablename_geom ON tablename USING GIST (geom);
-        throw new NotSupportedException(
-            "Creating spatial index requires direct database access. Use PostgreSQL client to execute: CREATE INDEX idx_" +
-            tableName + "_" + geomColumn + " ON " + tableName + " USING GIST (" + geomColumn + ");");
+        var indexName = $"idx_{tableName}_{geomColumn}";
+        var sql = $"CREATE INDEX \"{indexName}\" ON \"{tableName}\" USING GIST (\"{geomColumn}\")";
+        try
+        {
+            using var result = dataSource.ExecuteSQL(sql, null, null);
+        }
+        catch (System.Exception ex)
+        {
+            if (ex is DataSourceException)
+                throw;
+            throw new DataSourceException($"Failed to create spatial index for table '{tableName}'", ex);
+        }
+    }
+
+    private static void ValidateIdentifier(string value, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Any(c => !(char.IsLetterOrDigit(c) || c == '_')))
+            throw new ArgumentException("Identifier may contain only letters, digits, and underscores", parameterName);
     }
 }

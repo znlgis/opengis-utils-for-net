@@ -102,6 +102,8 @@ public class OguLayer
     {
         if (Features == null)
             throw new LayerValidationException("Layer features collection cannot be null");
+        if (filter == null)
+            throw new ArgumentNullException(nameof(filter));
 
         return Features.Where(filter).ToList();
     }
@@ -154,6 +156,9 @@ public class OguLayer
 
         if (Metadata != null)
         {
+            if (Metadata.ExtendedProperties == null)
+                throw new LayerValidationException("Layer metadata extended properties cannot be null");
+
             clone.Metadata = new OguLayerMetadata
             {
                 DataSource = Metadata.DataSource,
@@ -194,6 +199,14 @@ public class OguLayer
     {
         if (field == null)
             throw new ArgumentNullException(nameof(field));
+        if (string.IsNullOrWhiteSpace(field.Name))
+            throw new ArgumentException("Field name cannot be null or empty", nameof(field));
+        if (field.Length is < 0)
+            throw new ArgumentOutOfRangeException(nameof(field), "Field length cannot be negative");
+        if (field.Precision is < 0)
+            throw new ArgumentOutOfRangeException(nameof(field), "Field precision cannot be negative");
+        if (Fields == null)
+            throw new LayerValidationException("Layer fields collection cannot be null");
 
         if (Fields.Any(f => f.Name == field.Name))
             throw new LayerValidationException($"Field '{field.Name}' already exists");

@@ -58,7 +58,9 @@ public static class GeometryUtil
         if (geom == null)
             throw new ArgumentNullException(nameof(geom));
 
-        geom.ExportToWkt(out string wkt);
+        if (geom.ExportToWkt(out string wkt) != 0 || string.IsNullOrWhiteSpace(wkt))
+            throw new FormatException("Failed to export geometry to WKT");
+
         return wkt;
     }
 

@@ -68,7 +68,8 @@ public static class CrsUtil
         if (geometry.Transform(transform) != 0)
             throw new SysException("Coordinate transformation failed");
 
-        geometry.ExportToWkt(out string transformedWkt);
+        if (geometry.ExportToWkt(out string transformedWkt) != 0 || string.IsNullOrWhiteSpace(transformedWkt))
+            throw new SysException("Failed to export transformed geometry to WKT");
 
         return transformedWkt;
     }

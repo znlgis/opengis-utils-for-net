@@ -241,6 +241,34 @@ public class OguLayerTests
     }
 
     [Fact]
+    public void Clone_ThrowsWhenMetadataPropertiesAreNull()
+    {
+        var layer = CreateValidLayer();
+        layer.Metadata = new OguLayerMetadata { ExtendedProperties = null! };
+
+        var act = () => layer.Clone();
+
+        act.Should().Throw<LayerValidationException>()
+            .WithMessage("*extended properties*null*");
+    }
+
+    [Fact]
+    public void Filter_ThrowsWhenFilterIsNull()
+    {
+        var act = () => CreateValidLayer().Filter(null!);
+
+        act.Should().Throw<ArgumentNullException>().WithParameterName("filter");
+    }
+
+    [Fact]
+    public void AddField_ThrowsWhenFieldNameIsEmpty()
+    {
+        var act = () => new OguLayer().AddField(new OguField { Name = " " });
+
+        act.Should().Throw<ArgumentException>().WithMessage("*name*");
+    }
+
+    [Fact]
     public void AddField_AddsFieldSuccessfully()
     {
         var layer = new OguLayer { Name = "Test" };

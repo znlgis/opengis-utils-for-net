@@ -1,4 +1,7 @@
 using FluentAssertions;
+using OpenGIS.Utils.Engine;
+using OpenGIS.Utils.Engine.Enums;
+using OpenGIS.Utils.Engine.Model.Layer;
 using OpenGIS.Utils.Engine.Util;
 using OpenGIS.Utils.Exception;
 
@@ -30,5 +33,18 @@ public class ShpUtilTests : IDisposable
 
         act.Should().Throw<DataSourceException>()
             .WithMessage("*data source*");
+    }
+
+    [Fact]
+    public void GetShapefileBounds_ReturnsEnvelopeForEmptyShapefile()
+    {
+        var path = Path.Combine(_testDir, "empty.shp");
+        var layer = new OguLayer { Name = "empty", GeometryType = GeometryType.POINT };
+        layer.AddField(new OguField { Name = "name", DataType = FieldDataType.STRING });
+        new GdalWriter().Write(layer, path);
+
+        var envelope = ShpUtil.GetShapefileBounds(path);
+
+        envelope.Should().NotBeNull();
     }
 }

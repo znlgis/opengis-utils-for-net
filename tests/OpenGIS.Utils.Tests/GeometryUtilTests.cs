@@ -17,4 +17,12 @@ public class GeometryUtilTests
         act.Should().Throw<ArgumentException>()
             .WithMessage("*null*geometry*");
     }
+
+    [Fact]
+    public void Geometry2Wkt_ReturnsValidWkt()
+    {
+        using var point = OgrGeometry.CreateFromWkt("POINT (1 2)");
+
+        GeometryUtil.Geometry2Wkt(point!).Should().Be("POINT (1 2)");
+    }
 }

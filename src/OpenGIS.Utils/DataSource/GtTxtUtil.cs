@@ -69,7 +69,9 @@ public static class GtTxtUtil
             }
 
             // 解析坐标行
-            var coordinate = ParseTxtLine(line);
+            var coordinate = TryParseTxtLine(line, out var parsedCoordinate)
+                ? parsedCoordinate
+                : null;
             if (coordinate == null)
                 throw new FormatParseException($"Invalid TXT coordinate line: {line}");
 
@@ -110,6 +112,8 @@ public static class GtTxtUtil
             throw new ArgumentNullException(nameof(layer));
         if (string.IsNullOrWhiteSpace(txtPath))
             throw new ArgumentException("Path cannot be null or empty", nameof(txtPath));
+        if (layer.Features == null)
+            throw new ArgumentException("Layer features collection cannot be null", nameof(layer));
 
         encoding = encoding ?? Encoding.UTF8;
         metadata = metadata ?? layer.Metadata ?? new OguLayerMetadata();
@@ -194,6 +198,18 @@ public static class GtTxtUtil
             Logger.LogDebug(ex, "解析 TXT 坐标行失败: {Line}", line);
             return null;
         }
+    }
+
+    /// <summary>
+    ///     尝试解析 TXT 坐标行。
+    /// </summary>
+    /// <param name="line">坐标行文本</param>
+    /// <param name="coordinate">解析出的坐标对象，解析失败时为 null</param>
+    /// <returns>解析成功返回 true，否则返回 false</returns>
+    public static bool TryParseTxtLine(string line, out OguCoordinate? coordinate)
+    {
+        coordinate = ParseTxtLine(line);
+        return coordinate != null;
     }
 
     /// <summary>

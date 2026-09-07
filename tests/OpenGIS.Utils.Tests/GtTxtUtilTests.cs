@@ -95,6 +95,33 @@ public class GtTxtUtilTests
     }
 
     [Fact]
+    public void TryParseTxtLine_ReturnsFalseForInvalidLine()
+    {
+        var success = GtTxtUtil.TryParseTxtLine("J3 1 invalid 2", out var coordinate);
+
+        success.Should().BeFalse();
+        coordinate.Should().BeNull();
+    }
+
+    [Fact]
+    public void SaveTxt_ThrowsWhenFeaturesCollectionIsNull()
+    {
+        var layer = new OguLayer { Name = "points", Features = null! };
+        var path = Path.Combine(Path.GetTempPath(), $"GtTxtUtilTests_{Guid.NewGuid():N}.txt");
+
+        try
+        {
+            var act = () => GtTxtUtil.SaveTxt(layer, path);
+
+            act.Should().Throw<ArgumentException>().WithMessage("*features*");
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void LoadTxt_ThrowsFormatParseExceptionForInvalidCoordinateLine()
     {
         var path = Path.Combine(Path.GetTempPath(), $"GtTxtUtilTests_{Guid.NewGuid():N}.txt");

@@ -153,4 +153,12 @@ public class CrsUtilTests
 
         act.Should().Throw<ArgumentException>();
     }
+
+    [Fact]
+    public void Transform_ReturnsValidWktForGeometry()
+    {
+        var transformed = CrsUtil.Transform("POINT (1 2)", 4326, 3857);
+
+        transformed.Should().Contain("POINT");
+    }
 }

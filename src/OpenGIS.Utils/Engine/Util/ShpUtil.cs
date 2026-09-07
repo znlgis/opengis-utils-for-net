@@ -118,7 +118,7 @@ public static class ShpUtil
     /// <param name="shpPath">Shapefile 路径</param>
     /// <returns>边界矩形</returns>
     /// <exception cref="FileNotFoundException">当 Shapefile 不存在时抛出</exception>
-    public static Envelope? GetShapefileBounds(string shpPath)
+    public static Envelope GetShapefileBounds(string shpPath)
     {
         if (!File.Exists(shpPath))
             throw new FileNotFoundException("Shapefile not found", shpPath);
@@ -137,7 +137,11 @@ public static class ShpUtil
                 throw new DataSourceException($"No layers found in data source: {shpPath}");
 
             var envelope = new Envelope();
-            layer.GetExtent(envelope, 1);
+            if (layer.GetExtent(envelope, 1) != 0 ||
+                double.IsNaN(envelope.MinX) || double.IsNaN(envelope.MaxX) ||
+                double.IsNaN(envelope.MinY) || double.IsNaN(envelope.MaxY) ||
+                envelope.MinX > envelope.MaxX || envelope.MinY > envelope.MaxY)
+                throw new DataSourceException($"Failed to read extent from data source: {shpPath}");
 
             return envelope;
         }
