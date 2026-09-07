@@ -216,7 +216,7 @@ public class GdalReader : ILayerReader
                 {
                     if (fieldIndexMap.TryGetValue(field.Name, out var fieldIndex))
                     {
-                        var value = GetFieldValue(ogrFeature, fieldIndex, field.DataType);
+                        var value = GetFieldValue(ogrFeature, fieldIndex, field.DataType, field.Name);
                         feature.SetValue(field.Name, value);
                     }
                 }
@@ -245,7 +245,7 @@ public class GdalReader : ILayerReader
         OSGeo.GDAL.Gdal.SetConfigOption("SHAPE_ENCODING", encoding.WebName);
     }
 
-    private object? GetFieldValue(Feature feature, int fieldIndex, FieldDataType dataType)
+    private object? GetFieldValue(Feature feature, int fieldIndex, FieldDataType dataType, string fieldName)
     {
         if (!feature.IsFieldSet(fieldIndex))
             return null;
@@ -256,12 +256,12 @@ public class GdalReader : ILayerReader
             FieldDataType.LONG => feature.GetFieldAsInteger64(fieldIndex),
             FieldDataType.DOUBLE or FieldDataType.FLOAT => feature.GetFieldAsDouble(fieldIndex),
             FieldDataType.STRING => feature.GetFieldAsString(fieldIndex),
-            FieldDataType.DATE or FieldDataType.DATETIME => GetDateTimeValue(feature, fieldIndex),
+            FieldDataType.DATE or FieldDataType.DATETIME => GetDateTimeValue(feature, fieldIndex, fieldName),
             _ => feature.GetFieldAsString(fieldIndex)
         };
     }
 
-    private DateTime? GetDateTimeValue(Feature feature, int fieldIndex)
+    private DateTime? GetDateTimeValue(Feature feature, int fieldIndex, string fieldName)
     {
         try
         {
@@ -282,7 +282,7 @@ public class GdalReader : ILayerReader
         catch (SysException ex)
         {
             Logger.LogDebug(ex, "解析日期时间字段失败 (fieldIndex={FieldIndex})", fieldIndex);
-            return null;
+            throw new FormatParseException($"Invalid date field '{fieldName}'", ex);
         }
     }
 }

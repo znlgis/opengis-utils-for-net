@@ -110,6 +110,24 @@ public class GdalReaderTests : IDisposable
     }
 
     [Fact]
+    public void Read_ThrowsFormatParseExceptionWhenDateTimeFieldIsInvalid()
+    {
+        var path = Path.Combine(_testDir, "invalid-datetime.gpkg");
+        var layer = new OguLayer { Name = "events", GeometryType = GeometryType.POINT };
+        layer.AddField(new OguField { Name = "occurred", DataType = FieldDataType.DATETIME });
+        var feature = new OguFeature { Fid = 1, Wkt = "POINT (0 0)" };
+        feature.SetValue("occurred", "not a date");
+        layer.AddFeature(feature);
+
+        new GdalWriter().Write(layer, path);
+
+        var act = () => new GdalReader().Read(path);
+
+        act.Should().Throw<FormatParseException>()
+            .WithMessage("*date*field*");
+    }
+
+    [Fact]
     public async Task Read_HandlesConcurrentEncodingOptions()
     {
         var utf8Path = CreateEncodedShapefile("utf8", Encoding.UTF8, "UTF8 value");
