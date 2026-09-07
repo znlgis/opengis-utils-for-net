@@ -85,14 +85,14 @@ public class GdalWriter : ILayerWriter
         try
         {
             // 创建数据源
-            dataSource = driver.CreateDataSource(path, new string[] { });
+            dataSource = driver.CreateDataSource(path, Array.Empty<string>());
 
             if (dataSource == null)
                 throw new DataSourceException($"Failed to create data source: {path}");
 
             // 创建图层
-            var ogrGeomType = OgrTypeMapper.MapToOgrGeometryType(layer.GeometryType);
-            var layerOptions = BuildLayerOptions(options);
+            var ogrGeomType = ResolveOgrGeometryType(layer);
+            var layerOptions = BuildLayerOptions(options, driverName);
             using var spatialReference = CreateSpatialReference(layer.Wkid);
             var ogrLayer = dataSource.CreateLayer(
                 layerName ?? layer.Name ?? "layer",
@@ -110,12 +110,27 @@ public class GdalWriter : ILayerWriter
                 try
                 {
                     if (ogrLayer.CreateField(fieldDefn, 1) != 0)
+                    {
+                        if (IsFixedSchemaDriver(driverName))
+                        {
+                            // DXF 等驱动使用固定 schema，不支持任意字段创建：跳过并告警
+                            Logger.LogWarning("驱动 {Driver} 不支持字段 '{Field}'，已跳过", driverName, field.Name);
+                            continue;
+                        }
+
                         throw new DataSourceException($"Failed to create field '{field.Name}'");
+                    }
                 }
                 catch (SysException ex)
                 {
                     if (ex is DataSourceException)
                         throw;
+
+                    if (IsFixedSchemaDriver(driverName))
+                    {
+                        Logger.LogWarning(ex, "驱动 {Driver} 不支持字段 '{Field}'，已跳过", driverName, field.Name);
+                        continue;
+                    }
 
                     throw new DataSourceException($"Failed to create field '{field.Name}'", ex);
                 }
@@ -169,8 +184,20 @@ public class GdalWriter : ILayerWriter
                         }
                     }
 
-                    // 添加要素到图层
-                    if (ogrLayer.CreateFeature(ogrFeature) != 0)
+                    // 添加要素到图层（MaxRev 绑定在插入失败时抛异常而非返回非零）
+                    var created = TryCreateFeature(ogrLayer, ogrFeature);
+                    if (!created && oguFeature.Fid != 0)
+                    {
+                        // FID 冲突回退：源 Fid 为 0 的要素由驱动自动分配 FID（通常从 1 开始），
+                        // 可能与显式指定的源 FID 撞 UNIQUE 约束（GPKG、OpenFileGDB 等）。
+                        // 此时放弃保留源 FID，改为自动分配重试一次。
+                        ogrFeature.SetFID(-1);
+                        created = TryCreateFeature(ogrLayer, ogrFeature);
+                        if (created)
+                            Logger.LogWarning("源 FID 冲突，已改用自动分配 FID (源Fid={Fid})", oguFeature.Fid);
+                    }
+
+                    if (!created)
                     {
                         failedCount++;
                         Logger.LogWarning("创建要素失败 (Fid={Fid})", oguFeature.Fid);
@@ -200,13 +227,25 @@ public class GdalWriter : ILayerWriter
         }
     }
 
-    private static string[] BuildLayerOptions(Dictionary<string, object>? options)
+    private static string[] BuildLayerOptions(Dictionary<string, object>? options, string driverName)
     {
-        if (options == null || !options.TryGetValue("encoding", out var encodingObj) || encodingObj == null)
-            return Array.Empty<string>();
+        var layerOptions = new List<string>();
 
-        var encoding = encodingObj as Encoding ?? Encoding.GetEncoding(encodingObj.ToString() ?? "UTF-8");
-        return new[] { $"ENCODING={encoding.WebName}" };
+        if (options != null && options.TryGetValue("encoding", out var encodingObj) && encodingObj != null)
+        {
+            var encoding = encodingObj as Encoding ?? Encoding.GetEncoding(encodingObj.ToString() ?? "UTF-8");
+            layerOptions.Add($"ENCODING={encoding.WebName}");
+        }
+
+        if (driverName is "GeoJSON" or "GeoJSONSeq")
+        {
+            // GeoJSON 默认不输出 null 字段，导致"值全为空的字段"在往返后丢失；
+            // 需配合 SetFieldNull 写出 "FIELD": null 以保留字段定义
+            layerOptions.Add("WRITE_NULL_FIELDS=YES");
+            layerOptions.Add("COORDINATE_PRECISION=15");
+        }
+
+        return layerOptions.ToArray();
     }
 
     /// <summary>
@@ -284,7 +323,17 @@ public class GdalWriter : ILayerWriter
                     SetFieldValue(ogrFeature, fieldIndexMap[field.Name], value, field.DataType, field.Name);
                 }
 
-                if (ogrLayer.CreateFeature(ogrFeature) != 0)
+                var appended = TryCreateFeature(ogrLayer, ogrFeature);
+                if (!appended && oguFeature.Fid != 0)
+                {
+                    // FID 冲突时放弃保留源 FID，改为自动分配重试一次（与 Write 行为一致）
+                    ogrFeature.SetFID(-1);
+                    appended = TryCreateFeature(ogrLayer, ogrFeature);
+                    if (appended)
+                        Logger.LogWarning("源 FID 冲突，已改用自动分配 FID (源Fid={Fid})", oguFeature.Fid);
+                }
+
+                if (!appended)
                 {
                     failedCount++;
                     Logger.LogWarning("追加要素失败 (Fid={Fid})", oguFeature.Fid);
@@ -316,6 +365,18 @@ public class GdalWriter : ILayerWriter
             throw new ArgumentException("Layer features collection cannot be null", nameof(layer));
     }
 
+    /// <summary>
+    ///     判断驱动是否使用固定 schema（不支持任意字段创建）
+    /// </summary>
+    /// <remarks>
+    ///     DXF 驱动的写入端使用固定的实体属性 schema，CreateField 会失败；
+    ///     这类驱动写入时跳过无法创建的字段而非整体失败。
+    /// </remarks>
+    private static bool IsFixedSchemaDriver(string driverName)
+    {
+        return driverName == "DXF";
+    }
+
     private string InferDriverName(string path, Dictionary<string, object>? options)
     {
         // 从选项中获取驱动名称
@@ -327,7 +388,8 @@ public class GdalWriter : ILayerWriter
         return extension switch
         {
             ".shp" => "ESRI Shapefile",
-            ".gdb" => "FileGDB",
+            // 优先使用 OpenFileGDB（GDAL 3.6+ 支持创建），避免依赖 ESRI FileGDB SDK 的闭源驱动
+            ".gdb" => "OpenFileGDB",
             ".gpkg" => "GPKG",
             ".kml" => "KML",
             ".dxf" => "DXF",
@@ -363,12 +425,83 @@ public class GdalWriter : ILayerWriter
         return spatialReference;
     }
 
+    /// <summary>
+    ///     尝试创建要素。MaxRev 绑定在插入失败时抛异常而非返回非零，这里统一为布尔结果。
+    /// </summary>
+    private static bool TryCreateFeature(Layer layer, Feature feature)
+    {
+        try
+        {
+            return layer.CreateFeature(feature) == 0;
+        }
+        catch (SysException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    ///     解析创建图层用的 OGR 几何类型
+    /// </summary>
+    /// <remarks>
+    ///     <see cref="GeometryType"/> 枚举未建模 Z 维度，而读取 Shapefile（PointZ/PolylineZ）时
+    ///     要素 WKT 会保留 Z 坐标；此时将图层类型升级为要素实际的维度类型，避免 GPKG 等驱动
+    ///     出现"声明 2D 但包含 Z 几何"的不一致。
+    /// </remarks>
+    private static wkbGeometryType ResolveOgrGeometryType(OguLayer layer)
+    {
+        var mapped = OgrTypeMapper.MapToOgrGeometryType(layer.GeometryType);
+        if (mapped == wkbGeometryType.wkbUnknown)
+            return mapped;
+
+        foreach (var feature in layer.Features)
+        {
+            if (string.IsNullOrWhiteSpace(feature.Wkt))
+                continue;
+
+            wkbGeometryType? actualType = null;
+            try
+            {
+                using var geometry = OSGeo.OGR.Geometry.CreateFromWkt(feature.Wkt);
+                if (geometry != null)
+                    actualType = geometry.GetGeometryType();
+            }
+            catch (SysException)
+            {
+                // 无法解析的几何由要素写入阶段统一报错
+                continue;
+            }
+
+            if (actualType is not { } actual)
+                continue;
+
+            // 仅当实际类型与映射类型基型一致（仅差 Z/M 维度位）时采用实际类型
+            if ((int)actual != (int)mapped &&
+                OgrTypeMapper.FlattenWkbType((int)actual) == mapped)
+                return actual;
+
+            break;
+        }
+
+        return mapped;
+    }
+
     private void SetFieldValue(Feature feature, int fieldIndex, object? value, FieldDataType dataType,
         string fieldName)
     {
         if (value == null)
         {
-            feature.UnsetField(fieldIndex);
+            // 优先使用 OGR null 语义（GDAL 3.3+）：GeoJSON 的 WRITE_NULL_FIELDS 等选项
+            // 依赖 null 而非 unset；旧绑定不支持时回退到 UnsetField
+            try
+            {
+                feature.SetFieldNull(fieldIndex);
+            }
+            catch (SysException)
+            {
+                feature.UnsetField(fieldIndex);
+            }
+
             return;
         }
 

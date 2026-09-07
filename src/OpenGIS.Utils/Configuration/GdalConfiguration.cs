@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using MaxRev.Gdal.Core;
 using OSGeo.GDAL;
 using OSGeo.OGR;
@@ -49,6 +50,10 @@ public static class GdalConfiguration
 
                 // MaxRev.Gdal.Universal 会自动配置路径
                 GdalBase.ConfigureAll();
+
+                // DXF 等驱动运行时需要 GDAL 数据文件（header.dxf 等），MaxRev 包将其部署在
+                // runtimes/any/native/gdal-data，但不会自动设置 GDAL_DATA，这里显式指向
+                ConfigureGdalData();
 
                 // 注册所有驱动（GDAL AllRegister 已在 ConfigureAll 中调用，此处补充 OGR 注册）
                 RegisterAllDrivers();
@@ -141,5 +146,60 @@ public static class GdalConfiguration
     private static void EnsureConfigured()
     {
         if (!_isConfigured) ConfigureGdal();
+    }
+
+    /// <summary>
+    ///     定位并设置 GDAL_DATA（仅当当前未指向有效目录时）
+    /// </summary>
+    /// <remarks>
+    ///     搜索 MaxRev.Gdal 部署的 runtimes/any/native/gdal-data 目录，
+    ///     覆盖应用输出目录与 NuGet 包缓存两种布局（向上最多回溯 5 级）。
+    /// </remarks>
+    private static void ConfigureGdalData()
+    {
+        var existing = Environment.GetEnvironmentVariable("GDAL_DATA");
+        if (!string.IsNullOrEmpty(existing) && Directory.Exists(existing))
+            return;
+
+        var anchors = new List<string>();
+        try
+        {
+            var assemblyLocation = typeof(GdalBase).Assembly.Location;
+            if (!string.IsNullOrEmpty(assemblyLocation))
+                anchors.Add(Path.GetDirectoryName(assemblyLocation)!);
+        }
+        catch (SysException)
+        {
+            // 程序集位置不可用时忽略
+        }
+
+        anchors.Add(AppContext.BaseDirectory);
+
+        foreach (var anchor in anchors)
+        {
+            var dataDir = FindGdalDataDir(anchor);
+            if (dataDir == null)
+                continue;
+
+            Environment.SetEnvironmentVariable("GDAL_DATA", dataDir, EnvironmentVariableTarget.Process);
+            Gdal.SetConfigOption("GDAL_DATA", dataDir);
+            return;
+        }
+    }
+
+    private static string? FindGdalDataDir(string baseDirectory)
+    {
+        if (string.IsNullOrEmpty(baseDirectory))
+            return null;
+
+        var current = new DirectoryInfo(baseDirectory);
+        for (var i = 0; i < 5 && current != null; i++, current = current.Parent!)
+        {
+            var candidate = Path.Combine(current.FullName, "runtimes", "any", "native", "gdal-data");
+            if (Directory.Exists(candidate) && File.Exists(Path.Combine(candidate, "header.dxf")))
+                return candidate;
+        }
+
+        return null;
     }
 }

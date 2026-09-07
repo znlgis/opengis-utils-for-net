@@ -258,6 +258,11 @@ public class GdalReader : ILayerReader
         if (!feature.IsFieldSet(fieldIndex))
             return null;
 
+        // OGR 的 null 字段（如 Shapefile 空 'D' 日期字段）：GetFieldAsDateTime 对这类字段
+        // 会返回残留或全 0 分量，导致 DateTime 构造抛异常，因此这里直接按空值处理。
+        if (feature.IsFieldNull(fieldIndex))
+            return null;
+
         return dataType switch
         {
             FieldDataType.INTEGER => feature.GetFieldAsInteger(fieldIndex),

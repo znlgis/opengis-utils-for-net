@@ -69,6 +69,12 @@ public static class GtTxtUtil
                 continue;
             }
 
+            // 跳过 SaveTxt 输出的列头行（点号/圈号/X/Y/Z/备注）
+            var trimmedLine = line.Trim();
+            if (trimmedLine.StartsWith("点号", StringComparison.Ordinal) &&
+                trimmedLine.Contains("X") && trimmedLine.Contains("Y"))
+                continue;
+
             // 解析坐标行
             var coordinate = TryParseTxtLine(line, out var parsedCoordinate)
                 ? parsedCoordinate
@@ -158,6 +164,13 @@ public static class GtTxtUtil
             coordinate.PointNumber = feature.GetValue("点号")?.ToString();
             coordinate.RingNumber = feature.GetValue("圈号")?.ToString();
             coordinate.Remark = feature.GetValue("备注")?.ToString();
+
+            // 国土 TXT 格式要求点号/圈号非空（否则 LoadTxt 无法解析）；
+            // 缺失时用要素 Fid / 默认圈号补齐，保证 SaveTxt→LoadTxt 可往返
+            if (string.IsNullOrWhiteSpace(coordinate.PointNumber))
+                coordinate.PointNumber = feature.Fid.ToString(CultureInfo.InvariantCulture);
+            if (string.IsNullOrWhiteSpace(coordinate.RingNumber))
+                coordinate.RingNumber = "1";
 
             lines.Add(FormatTxtLine(coordinate, zoneNumber ?? 0));
         }
