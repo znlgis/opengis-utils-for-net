@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text.Json;
+using OpenGIS.Utils.Exception;
 
 namespace OpenGIS.Utils.Engine.Model.Layer;
 
@@ -38,6 +39,7 @@ public class OguFeature
     /// <returns>字段值，如果字段不存在则返回 null</returns>
     public object? GetValue(string fieldName)
     {
+        EnsureAttributes();
         return Attributes.TryGetValue(fieldName, out var fieldValue) ? fieldValue.Value : null;
     }
 
@@ -48,6 +50,7 @@ public class OguFeature
     /// <param name="value">字段值</param>
     public void SetValue(string fieldName, object? value)
     {
+        EnsureAttributes();
         if (Attributes.TryGetValue(fieldName, out var fieldValue))
             fieldValue.Value = value;
         else
@@ -61,6 +64,7 @@ public class OguFeature
     /// <returns>字段值对象，如果字段不存在则返回 null</returns>
     public OguFieldValue? GetAttribute(string fieldName)
     {
+        EnsureAttributes();
         return Attributes.TryGetValue(fieldName, out var fieldValue) ? fieldValue : null;
     }
 
@@ -71,6 +75,7 @@ public class OguFeature
     /// <returns>如果属性存在返回 true，否则返回 false</returns>
     public bool HasAttribute(string fieldName)
     {
+        EnsureAttributes();
         return Attributes.ContainsKey(fieldName);
     }
 
@@ -99,11 +104,18 @@ public class OguFeature
     /// <returns>要素的完整副本，包括所有属性值</returns>
     public OguFeature Clone()
     {
+        EnsureAttributes();
         var clone = new OguFeature { Fid = Fid, Wkt = Wkt };
 
         foreach (var kvp in Attributes)
             clone.Attributes[kvp.Key] = new OguFieldValue(OguFieldValue.CloneValue(kvp.Value.Value));
 
         return clone;
+    }
+
+    private void EnsureAttributes()
+    {
+        if (Attributes == null)
+            throw new LayerValidationException("Feature attributes collection cannot be null");
     }
 }

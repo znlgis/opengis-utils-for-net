@@ -1,5 +1,6 @@
 using FluentAssertions;
 using OpenGIS.Utils.Engine.Model.Layer;
+using OpenGIS.Utils.Exception;
 
 namespace OpenGIS.Utils.Tests;
 
@@ -115,6 +116,61 @@ public class OguFeatureTests
         ((byte[])clone.GetValue("Bytes")!)[0] = 9;
 
         ((byte[])feature.GetValue("Bytes")!).Should().Equal(1, 2);
+    }
+
+    [Fact]
+    public void GetValue_ThrowsWhenAttributesCollectionIsNull()
+    {
+        var feature = new OguFeature { Attributes = null! };
+
+        var act = () => feature.GetValue("Name");
+
+        act.Should().Throw<LayerValidationException>()
+            .WithMessage("*attributes*null*");
+    }
+
+    [Fact]
+    public void SetValue_ThrowsWhenAttributesCollectionIsNull()
+    {
+        var feature = new OguFeature { Attributes = null! };
+
+        var act = () => feature.SetValue("Name", "value");
+
+        act.Should().Throw<LayerValidationException>()
+            .WithMessage("*attributes*null*");
+    }
+
+    [Fact]
+    public void GetAttribute_ThrowsWhenAttributesCollectionIsNull()
+    {
+        var feature = new OguFeature { Attributes = null! };
+
+        var act = () => feature.GetAttribute("Name");
+
+        act.Should().Throw<LayerValidationException>()
+            .WithMessage("*attributes*null*");
+    }
+
+    [Fact]
+    public void HasAttribute_ThrowsWhenAttributesCollectionIsNull()
+    {
+        var feature = new OguFeature { Attributes = null! };
+
+        var act = () => feature.HasAttribute("Name");
+
+        act.Should().Throw<LayerValidationException>()
+            .WithMessage("*attributes*null*");
+    }
+
+    [Fact]
+    public void Clone_ThrowsWhenAttributesCollectionIsNull()
+    {
+        var feature = new OguFeature { Attributes = null! };
+
+        var act = () => feature.Clone();
+
+        act.Should().Throw<LayerValidationException>()
+            .WithMessage("*attributes*null*");
     }
 
     [Fact]
