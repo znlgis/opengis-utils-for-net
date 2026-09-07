@@ -1,12 +1,36 @@
 using System.Globalization;
 using FluentAssertions;
 using OpenGIS.Utils.DataSource;
+using OpenGIS.Utils.Engine.Enums;
+using OpenGIS.Utils.Engine.Model.Layer;
+using OpenGIS.Utils.Exception;
 
 namespace OpenGIS.Utils.Tests;
 
 [Collection("CultureSensitive")]
 public class GtTxtUtilTests
 {
+    [Fact]
+    public void SaveTxt_ThrowsFormatParseExceptionForInvalidFeatureWkt()
+    {
+        var layer = new OguLayer { Name = "points", GeometryType = GeometryType.POINT };
+        layer.AddFeature(new OguFeature { Fid = 1, Wkt = "NOT A GEOMETRY" });
+        var path = Path.Combine(Path.GetTempPath(), $"GtTxtUtilTests_{Guid.NewGuid():N}.txt");
+
+        try
+        {
+            var act = () => GtTxtUtil.SaveTxt(layer, path);
+
+            act.Should().Throw<FormatParseException>()
+                .WithMessage("*WKT*Fid=1*");
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
     [Fact]
     public void ParseTxtLine_Parses2DCoordinate()
     {

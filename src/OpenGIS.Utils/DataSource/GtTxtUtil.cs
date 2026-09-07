@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using OpenGIS.Utils.Configuration;
 using OpenGIS.Utils.Engine.Enums;
 using OpenGIS.Utils.Engine.Model.Layer;
+using OpenGIS.Utils.Exception;
 using OpenGIS.Utils.Utils;
 
 namespace OpenGIS.Utils.DataSource;
@@ -145,9 +146,7 @@ public static class GtTxtUtil
                 }
                 catch (System.Exception ex)
                 {
-                    // 如果解析失败，跳过该要素
-                    Logger.LogDebug(ex, "解析要素 WKT 失败，已跳过 (Fid={Fid})", feature.Fid);
-                    continue;
+                    throw new FormatParseException($"Invalid feature WKT (Fid={feature.Fid})", ex);
                 }
 
             coordinate.PointNumber = feature.GetValue("点号")?.ToString();
