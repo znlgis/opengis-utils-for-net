@@ -24,6 +24,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\OpenGIS.Utils\OpenGIS.Utils.csproj" />
+    <ProjectReference Include="..\OpenGIS.Utils.RealDataHarness\OpenGIS.Utils.RealDataHarness.csproj" />
   </ItemGroup>
 
 </Project>

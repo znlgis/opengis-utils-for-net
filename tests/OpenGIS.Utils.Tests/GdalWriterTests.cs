@@ -269,6 +269,57 @@ public class GdalWriterTests : IDisposable
             .Which.Should().Be(expected);
     }
 
+    [Fact]
+    public void Write_RetriesWithAutoFidWhenSourceFidCollidesInGpkg()
+    {
+        // 回归：源 Fid=0 的要素由驱动自动分配 fid=1，与显式指定的源 Fid=1 撞 UNIQUE 约束，
+        // 此时应回退为自动分配 FID 而不是写入失败
+        var layer = new OguLayer
+        {
+            Name = "points",
+            GeometryType = GeometryType.POINT,
+            Wkid = 4326
+        };
+        layer.AddField(new OguField { Name = "name", DataType = FieldDataType.STRING });
+        var feature0 = new OguFeature { Fid = 0, Wkt = "POINT (0 0)" };
+        feature0.SetValue("name", "auto");
+        layer.AddFeature(feature0);
+        var feature1 = new OguFeature { Fid = 1, Wkt = "POINT (1 1)" };
+        feature1.SetValue("name", "explicit");
+        layer.AddFeature(feature1);
+
+        var path = Path.Combine(_testDir, "fid-collision.gpkg");
+        new GdalWriter().Write(layer, path);
+
+        var result = new GdalReader().Read(path);
+        result.Features.Should().HaveCount(2);
+        result.Features.Select(f => f.GetValue("name")).Should().ContainInOrder("auto", "explicit");
+    }
+
+    [Fact]
+    public void Write_Uses25DGeometryTypeWhenFeaturesHaveZ()
+    {
+        // 回归：GeometryType 枚举无 Z 维度，但要素 WKT 含 Z 时图层应声明为 25D，
+        // 避免 GPKG 等驱动出现"声明 2D 但包含 Z 几何"的不一致，且 Z 值应保留
+        var layer = new OguLayer
+        {
+            Name = "points",
+            GeometryType = GeometryType.POINT,
+            Wkid = 4326
+        };
+        layer.AddField(new OguField { Name = "name", DataType = FieldDataType.STRING });
+        var feature = new OguFeature { Fid = 1, Wkt = "POINT (10 20 30)" };
+        feature.SetValue("name", "with-z");
+        layer.AddFeature(feature);
+
+        var path = Path.Combine(_testDir, "with-z.gpkg");
+        new GdalWriter().Write(layer, path);
+
+        var result = new GdalReader().Read(path);
+        result.Features.Should().ContainSingle();
+        result.Features[0].Wkt.Should().Contain("30");
+    }
+
     private static OguLayer CreatePointLayer(int fid, string name, string wkt)
     {
         return CreatePointLayerWithField(fid, name, wkt, "name");

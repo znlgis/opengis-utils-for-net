@@ -146,6 +146,32 @@ public class GtTxtUtilTests
     }
 
     [Fact]
+    public void SaveTxt_LoadTxt_RoundTripsWithHeaderLine()
+    {
+        // 回归：SaveTxt 输出的列头行（点号/圈号/X/Y/Z/备注）应能被 LoadTxt 跳过
+        var layer = new OguLayer { Name = "points", GeometryType = GeometryType.POINT };
+        layer.AddField(new OguField { Name = "点号", DataType = FieldDataType.STRING });
+        layer.AddFeature(new OguFeature { Fid = 1, Wkt = "POINT (100.5 200.25 12.5)" });
+        layer.AddFeature(new OguFeature { Fid = 2, Wkt = "POINT (101.5 201.25)" });
+        var path = Path.Combine(Path.GetTempPath(), $"GtTxtUtilTests_{Guid.NewGuid():N}.txt");
+
+        try
+        {
+            GtTxtUtil.SaveTxt(layer, path);
+
+            var loaded = GtTxtUtil.LoadTxt(path);
+
+            loaded.GetFeatureCount().Should().Be(2);
+            loaded.Features[1].GetValue("X").Should().Be(101.5);
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void FormatTxtLine_RoundTripsWithParse()
     {
         var line = GtTxtUtil.ParseTxtLine("J1 2 500000.5 4400000.25 3.5 角点");

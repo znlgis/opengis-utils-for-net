@@ -10,6 +10,11 @@ using OgrGeometry = OSGeo.OGR.Geometry;
 
 namespace OpenGIS.Utils.Tests;
 
+/// <summary>
+///     该测试类会修改进程级 GDAL 配置（SHAPE_ENCODING），
+///     加入 CultureSensitive 集合与其他全局状态相关测试串行执行。
+/// </summary>
+[Collection("CultureSensitive")]
 public class GdalReaderTests : IDisposable
 {
     private readonly string _testDir;
@@ -113,8 +118,9 @@ public class GdalReaderTests : IDisposable
     }
 
     [Fact]
-    public void Read_ThrowsFormatParseExceptionWhenDateTimeFieldIsInvalid()
+    public void Read_ReturnsNullForNullDateTimeField()
     {
+        // GPKG 驱动无法存储 "not a date"，写入后实际为 null 字段（与 Shapefile 空 'D' 日期一致）
         var path = Path.Combine(_testDir, "invalid-datetime.gpkg");
         GdalConfiguration.ConfigureGdal();
         var driver = Ogr.GetDriverByName("GPKG");
@@ -131,10 +137,36 @@ public class GdalReaderTests : IDisposable
             dataSource.SyncToDisk();
         }
 
-        var act = () => new GdalReader().Read(path);
+        var layer = new GdalReader().Read(path);
 
-        act.Should().Throw<FormatParseException>()
-            .WithMessage("*date*field*");
+        layer.GetFeatureCount().Should().Be(1);
+        layer.Features[0].GetValue("occurred").Should().BeNull();
+    }
+
+    [Fact]
+    public void Read_ReturnsNullForEmptyShapefileDateField()
+    {
+        // 回归：真实 Shapefile 常见空 'D' 日期字段（空白值），读取应为 null 而非抛 FormatParseException
+        var path = Path.Combine(_testDir, "empty-date.shp");
+        GdalConfiguration.ConfigureGdal();
+        var driver = Ogr.GetDriverByName("ESRI Shapefile");
+        using (var dataSource = driver!.CreateDataSource(path, Array.Empty<string>()))
+        using (var ogrLayer = dataSource!.CreateLayer("events", null, wkbGeometryType.wkbPoint, Array.Empty<string>()))
+        using (var fieldDefinition = new FieldDefn("occurred", FieldType.OFTDate))
+        {
+            ogrLayer.CreateField(fieldDefinition, 1);
+            using var ogrFeature = new Feature(ogrLayer.GetLayerDefn());
+            using var geometry = OgrGeometry.CreateFromWkt("POINT (0 0)");
+            ogrFeature.SetGeometry(geometry);
+            ogrFeature.SetField(0, "        ");
+            ogrLayer.CreateFeature(ogrFeature);
+            dataSource.SyncToDisk();
+        }
+
+        var layer = new GdalReader().Read(path);
+
+        layer.GetFeatureCount().Should().Be(1);
+        layer.Features[0].GetValue("occurred").Should().BeNull();
     }
 
     [Fact]
