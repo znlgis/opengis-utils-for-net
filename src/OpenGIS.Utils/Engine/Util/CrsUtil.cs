@@ -86,6 +86,9 @@ public static class CrsUtil
         if (geometry == null)
             throw new ArgumentNullException(nameof(geometry));
 
+        if (geometry.IsEmpty())
+            throw new ArgumentException("Geometry cannot be empty", nameof(geometry));
+
         if (sourceWkid == targetWkid)
             return geometry;
 
@@ -93,7 +96,11 @@ public static class CrsUtil
         geometry.ExportToWkt(out string wkt);
         var transformedWkt = Transform(wkt, sourceWkid, targetWkid);
 
-        return OgrGeometry.CreateFromWkt(transformedWkt);
+        var transformedGeometry = OgrGeometry.CreateFromWkt(transformedWkt);
+        if (transformedGeometry == null)
+            throw new SysException("Failed to create transformed geometry");
+
+        return transformedGeometry;
     }
 
     /// <summary>

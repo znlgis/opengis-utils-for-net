@@ -1,6 +1,7 @@
 using FluentAssertions;
 using OpenGIS.Utils.Configuration;
 using OpenGIS.Utils.Engine.Util;
+using OgrGeometry = OSGeo.OGR.Geometry;
 
 namespace OpenGIS.Utils.Tests;
 
@@ -130,5 +131,16 @@ public class CrsUtilTests
 
         act.Should().Throw<ArgumentException>()
             .WithMessage("*target*WKID*");
+    }
+
+    [Fact]
+    public void Transform_ThrowsForEmptyGeometry()
+    {
+        using var geometry = OgrGeometry.CreateFromWkt("POINT EMPTY");
+
+        var act = () => CrsUtil.Transform(geometry!, 4326, 4490);
+
+        act.Should().Throw<ArgumentException>()
+            .WithMessage("*empty*");
     }
 }
