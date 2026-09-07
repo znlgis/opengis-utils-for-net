@@ -118,6 +118,8 @@ public static class ShpUtil
     /// <param name="shpPath">Shapefile 路径</param>
     /// <returns>边界矩形</returns>
     /// <exception cref="FileNotFoundException">当 Shapefile 不存在时抛出</exception>
+    /// <exception cref="DataSourceException">当数据源、图层或图层范围无法读取时抛出</exception>
+    /// <remarks>空 Shapefile 可能返回由驱动提供的空范围；这不等同于数据源读取失败。</remarks>
     public static Envelope GetShapefileBounds(string shpPath)
     {
         if (!File.Exists(shpPath))

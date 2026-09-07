@@ -53,6 +53,7 @@ public static class GeometryUtil
     /// <param name="geom">OGR 几何对象</param>
     /// <returns>WKT 格式的几何字符串</returns>
     /// <exception cref="ArgumentNullException">当几何对象为 null 时抛出</exception>
+    /// <exception cref="FormatException">当 OGR 无法导出有效 WKT 时抛出</exception>
     public static string Geometry2Wkt(OgrGeometry geom)
     {
         if (geom == null)
@@ -96,6 +97,7 @@ public static class GeometryUtil
     /// <param name="geom">OGR 几何对象</param>
     /// <returns>GeoJSON 格式的几何字符串</returns>
     /// <exception cref="ArgumentNullException">当几何对象为 null 时抛出</exception>
+    /// <remarks>返回的字符串由 GDAL/OGR 生成；调用方不需要释放输入几何对象，仍须负责输入对象本身的生命周期。</remarks>
     public static string Geometry2Geojson(OgrGeometry geom)
     {
         if (geom == null)

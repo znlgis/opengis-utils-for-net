@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Microsoft.Extensions.Logging.Abstractions` dependency. Defaults to no output
   (`NullLoggerFactory`); set `OguLogging.LoggerFactory` at startup to receive
   internal diagnostics that were previously silently discarded.
+- `GtTxtUtil.TryParseTxtLine`: non-throwing coordinate-line parsing API while
+  retaining the nullable `ParseTxtLine` method for compatibility.
+- `PostgisUtil.CreateSpatialIndex`: GIST index creation through the GDAL
+  PostgreSQL driver with safe identifier validation.
 - Initial project structure and solution setup
 - Core enums: GeometryType, FieldDataType, GisEngineType, DataFormatType, TopologyValidationErrorType
 - Exception system: OguException, DataSourceException, FormatParseException, EngineNotSupportedException, LayerValidationException, TopologyException
@@ -41,10 +45,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Silent `catch` blocks in `GdalReader`, `GdalWriter`, `PostgisUtil`, and
   `GtTxtUtil` now log the swallowed exception (Debug/Warning) instead of
   discarding it, preserving the previous control flow.
+- `GdalReader` documents and protects the process-wide encoding setting used
+  for encoded Shapefile reads; `GetLayerNames` uses the same configuration
+  guard.
+- `GdalWriter.Write` and `Append` document their recreation, append, field
+  mapping, FID, and failed-feature behavior.
+- `ShpUtil.GetShapefileBounds` now documents typed failures for unreadable
+  extents and the valid empty-Shapefile result.
 
 ### Fixed
 - `GeometryUtil.Envelope` no longer leaks the temporary linear-ring native
   geometry after it is cloned into the result polygon.
+- Invalid TXT coordinate rows, invalid GDAL date fields, and failed GDAL
+  field conversions are no longer silently lost or reported as untyped errors.
+- Geometry-to-WKT export results and Shapefile extent return codes are checked
+  before returning data to callers.
 
 ## [1.0.0] - TBD
 

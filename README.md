@@ -139,6 +139,29 @@ var filtered = OguLayerUtil.ReadLayer(
 );
 ```
 
+`GdalReader` 可通过 `options["encoding"]` 指定 Shapefile 属性编码。属性过滤器使用驱动支持的表达式语法，空间过滤器使用 WKT。无效过滤器、无法解析的日期字段、打不开的数据源和不存在的图层都会通过类型化异常报告，不会静默忽略。
+
+`GdalWriter.Append` 向已有数据源追加要素，不会删除原数据源；输入字段必须能够映射到目标图层。`Write` 会重新创建已存在的数据源。两种操作都会在处理完输入后，以 `DataSourceException` 汇总报告失败要素；目标驱动支持时会尽量保留非零 FID。
+
+PostGIS 操作要求连接字符串能够被 GDAL PostgreSQL 驱动识别。`PostgisUtil.CreateSpatialIndex` 通过 OGR 创建 GIST 索引，数据库用户必须拥有创建索引的权限，表名和几何列名仅允许字母、数字和下划线。
+
+`GdalReader` supports an optional `options["encoding"]` value for encoded
+Shapefile attributes. Attribute filters use the driver's expression syntax;
+spatial filters use WKT. Invalid filters, unreadable date fields, missing
+data sources, and missing layers are reported with typed exceptions rather
+than being silently ignored.
+
+`GdalWriter.Append` writes into an existing data source without deleting it.
+The input fields must exist in the target layer. `Write` recreates an existing
+data source, while both methods report failed features through
+`DataSourceException` after processing the input. Non-zero feature IDs are
+preserved when the target driver accepts them.
+
+For PostGIS, the connection string must be understood by the GDAL PostgreSQL
+driver. `PostgisUtil.CreateSpatialIndex` creates a GIST index through OGR;
+the database user must have permission to create indexes, and table/geometry
+column names are restricted to letters, digits, and underscores.
+
 #### Coordinate Transformation
 
 ```csharp
@@ -155,6 +178,28 @@ int zone6 = CrsUtil.GetDh6(116.404); // 6-degree zone
 // Get projected coordinate system WKID
 int wkid = CrsUtil.GetProjectedWkid(39);  // CGCS2000 3-degree zone 39
 ```
+
+The `CrsUtil.Transform` geometry overload returns the input OGR geometry when
+the source and target WKIDs are equal; otherwise it returns a new geometry.
+The caller owns the returned native geometry and must dispose it. Invalid WKIDs
+raise `ArgumentException`; conversion failures raise the documented runtime
+exception.
+
+#### TXT coordinate files
+
+`GtTxtUtil.LoadTxt` rejects malformed coordinate rows with
+`FormatParseException` instead of silently dropping them. New code can use
+`TryParseTxtLine` when parsing individual rows without exceptions:
+
+```csharp
+if (GtTxtUtil.TryParseTxtLine(line, out var coordinate))
+{
+    Console.WriteLine(coordinate!.ToWkt());
+}
+```
+
+The older `ParseTxtLine` method remains available and returns `null` for blank
+or invalid input for compatibility.
 
 #### Utility Functions
 
@@ -213,6 +258,11 @@ using OpenGIS.Utils.Configuration;
 
 OguLogging.LoggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
 ```
+
+GDAL's `SHAPE_ENCODING` setting is process-wide. The reader serializes the
+encoding-sensitive open/read operation so concurrent reads using different
+encodings do not overwrite one another's configuration. This protects
+correctness at the cost of serializing those operations.
 
 ### API Reference
 
@@ -468,6 +518,21 @@ int zone6 = CrsUtil.GetDh6(116.404); // 6度带
 int wkid = CrsUtil.GetProjectedWkid(39);  // CGCS2000 3度带第39带
 ```
 
+当源和目标 WKID 相同时，`CrsUtil.Transform` 的 Geometry 重载返回传入的 OGR 几何对象；发生转换时返回新的几何对象。调用方负责释放返回的原生几何对象。无效 WKID 抛出 `ArgumentException`，转换失败抛出文档中说明的运行时异常。
+
+#### TXT 坐标文件
+
+`GtTxtUtil.LoadTxt` 遇到无法解析的坐标行时抛出 `FormatParseException`，不再静默丢弃输入。单独解析坐标行时可使用不抛异常的 `TryParseTxtLine`：
+
+```csharp
+if (GtTxtUtil.TryParseTxtLine(line, out var coordinate))
+{
+    Console.WriteLine(coordinate!.ToWkt());
+}
+```
+
+旧的 `ParseTxtLine` 方法仍然保留，空行或无效输入继续返回 `null`，以维持兼容性。
+
 #### 实用工具函数
 
 ```csharp
@@ -524,6 +589,8 @@ using OpenGIS.Utils.Configuration;
 
 OguLogging.LoggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
 ```
+
+GDAL 的 `SHAPE_ENCODING` 是进程级配置。读取器会串行化设置编码、打开和读取数据源的过程，避免不同编码的并发读取互相覆盖；代价是这些编码敏感的读取操作不能并行执行。
 
 ### API 参考
 
@@ -588,12 +655,12 @@ OpenGIS.Utils/
 
 ### 依赖项
 
-- **[MaxRev.Gdal.Core](https://github.com/MaxRev-Dev/gdal.netcore)** 3.12.0+ - GDAL/OGR 绑定
-- **[MaxRev.Gdal.Universal](https://github.com/MaxRev-Dev/gdal.netcore)** 3.12.0+ - 跨平台 GDAL 运行时
-- **[System.Text.Json](https://www.nuget.org/packages/System.Text.Json)** 10.0.0 - JSON 序列化
-- **[System.Text.Encoding.CodePages](https://www.nuget.org/packages/System.Text.Encoding.CodePages)** 10.0.0 - 编码支持（GBK、GB2312）
+- **[MaxRev.Gdal.Core](https://github.com/MaxRev-Dev/gdal.netcore)** 3.13.3.557 - GDAL/OGR 绑定
+- **[MaxRev.Gdal.Universal](https://github.com/MaxRev-Dev/gdal.netcore)** 3.13.3.557 - 跨平台 GDAL 运行时
+- **[System.Text.Json](https://www.nuget.org/packages/System.Text.Json)** 10.0.11 - JSON 序列化
+- **[System.Text.Encoding.CodePages](https://www.nuget.org/packages/System.Text.Encoding.CodePages)** 10.0.11 - 编码支持（GBK、GB2312）
 - **[SharpZipLib](https://github.com/icsharpcode/SharpZipLib)** 1.4.2 - ZIP 压缩
-- **[Microsoft.Extensions.Logging.Abstractions](https://www.nuget.org/packages/Microsoft.Extensions.Logging.Abstractions)** 10.0.0 - 日志
+- **[Microsoft.Extensions.Logging.Abstractions](https://www.nuget.org/packages/Microsoft.Extensions.Logging.Abstractions)** 10.0.11 - 日志
 
 ### 环境要求
 

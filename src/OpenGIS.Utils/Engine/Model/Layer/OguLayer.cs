@@ -98,6 +98,8 @@ public class OguLayer
     /// </summary>
     /// <param name="filter">过滤条件函数</param>
     /// <returns>满足条件的要素列表</returns>
+    /// <exception cref="ArgumentNullException">当过滤条件为 null 时抛出</exception>
+    /// <exception cref="LayerValidationException">当 Features 集合为 null 时抛出</exception>
     public IList<OguFeature> Filter(Func<OguFeature, bool> filter)
     {
         if (Features == null)
@@ -140,6 +142,7 @@ public class OguLayer
     ///     深拷贝
     /// </summary>
     /// <returns>图层的完整副本，包括所有字段、要素和元数据</returns>
+    /// <exception cref="LayerValidationException">当字段、要素或元数据扩展属性集合为 null 时抛出</exception>
     public OguLayer Clone()
     {
         if (Fields == null)
@@ -194,7 +197,10 @@ public class OguLayer
     ///     添加字段
     /// </summary>
     /// <param name="field">字段定义</param>
-    /// <exception cref="LayerValidationException">当字段名称已存在时抛出</exception>
+    /// <exception cref="ArgumentNullException">当字段为 null 时抛出</exception>
+    /// <exception cref="ArgumentException">当字段名为空时抛出</exception>
+    /// <exception cref="ArgumentOutOfRangeException">当字段长度或精度为负数时抛出</exception>
+    /// <exception cref="LayerValidationException">当字段集合为 null 或字段名称已存在时抛出</exception>
     public void AddField(OguField field)
     {
         if (field == null)

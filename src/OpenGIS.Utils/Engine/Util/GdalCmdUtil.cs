@@ -18,7 +18,7 @@ public static class GdalCmdUtil
     /// <param name="gdbPath">GDB 路径</param>
     /// <returns>GDB 数据结构模型</returns>
     /// <exception cref="ArgumentException">当路径为空时抛出</exception>
-    /// <exception cref="SysException">当无法打开 GDB 时抛出</exception>
+    /// <exception cref="SysException">当无法打开 GDB 时抛出；具体异常类型取决于底层 GDAL 绑定</exception>
     public static GdbGroupModel GetGdbDataStructure(string gdbPath)
     {
         if (string.IsNullOrWhiteSpace(gdbPath))

@@ -31,6 +31,7 @@ public static class GtTxtUtil
     /// <param name="encoding">字符编码，如果为 null 则自动检测</param>
     /// <returns>图层对象</returns>
     /// <exception cref="FileNotFoundException">当文件不存在时抛出</exception>
+    /// <exception cref="FormatParseException">当非元数据行无法解析为坐标时抛出</exception>
     public static OguLayer LoadTxt(string txtPath, Encoding? encoding = null)
     {
         if (!File.Exists(txtPath))
@@ -101,6 +102,7 @@ public static class GtTxtUtil
     /// <param name="zoneNumber">带号，用于格式化坐标，默认为 0</param>
     /// <exception cref="ArgumentNullException">当图层为 null 时抛出</exception>
     /// <exception cref="ArgumentException">当路径为空时抛出</exception>
+    /// <exception cref="FormatParseException">当要素的 WKT 无法解析时抛出</exception>
     public static void SaveTxt(
         OguLayer layer,
         string txtPath,
@@ -206,6 +208,7 @@ public static class GtTxtUtil
     /// <param name="line">坐标行文本</param>
     /// <param name="coordinate">解析出的坐标对象，解析失败时为 null</param>
     /// <returns>解析成功返回 true，否则返回 false</returns>
+    /// <remarks>此方法提供不抛异常的尝试式 API；旧的 <see cref="ParseTxtLine"/> nullable API 保持兼容。</remarks>
     public static bool TryParseTxtLine(string line, out OguCoordinate? coordinate)
     {
         coordinate = ParseTxtLine(line);

@@ -18,8 +18,8 @@ public static class CrsUtil
     /// <param name="sourceWkid">源坐标系 WKID</param>
     /// <param name="targetWkid">目标坐标系 WKID</param>
     /// <returns>转换后的 WKT 字符串</returns>
-    /// <exception cref="ArgumentException">当 WKT 为空或无效时抛出</exception>
-    /// <exception cref="SysException">当坐标转换失败时抛出</exception>
+    /// <exception cref="ArgumentException">当 WKT 为空、无效或 source/target WKID 无效时抛出</exception>
+    /// <exception cref="SysException">当坐标转换或转换结果导出失败时抛出</exception>
     /// <example>
     ///     <code>
     /// // WGS84 (4326) 转 CGCS2000 (4490)
@@ -82,6 +82,12 @@ public static class CrsUtil
     /// <param name="targetWkid">目标坐标系 WKID</param>
     /// <returns>转换后的几何对象</returns>
     /// <exception cref="ArgumentNullException">当几何对象为 null 时抛出</exception>
+    /// <exception cref="ArgumentException">当几何对象为空时抛出</exception>
+    /// <exception cref="SysException">当坐标转换或转换结果无法创建时抛出</exception>
+    /// <remarks>
+    ///     当 source 和 target WKID 相同时返回输入对象本身；发生实际转换时返回新的 OGR 几何对象。
+    ///     调用方负责释放返回的 OGR 几何对象，并在 source 与 target 相同时负责管理传入对象的生命周期。
+    /// </remarks>
     public static OgrGeometry Transform(OgrGeometry geometry, int sourceWkid, int targetWkid)
     {
         if (geometry == null)

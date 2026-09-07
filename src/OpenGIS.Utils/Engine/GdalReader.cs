@@ -38,7 +38,12 @@ public class GdalReader : ILayerReader
     /// <param name="options">附加选项</param>
     /// <returns>图层对象</returns>
     /// <exception cref="ArgumentException">当路径为空时抛出</exception>
-    /// <exception cref="SysException">当无法打开数据源或找不到图层时抛出</exception>
+    /// <exception cref="DataSourceException">当无法打开数据源、找不到图层或数据源不包含图层时抛出</exception>
+    /// <exception cref="FormatParseException">当属性过滤器、空间过滤器或日期字段无法解析时抛出</exception>
+    /// <remarks>
+    ///     <paramref name="options"/> 支持名为 <c>encoding</c> 的编码选项，用于读取 Shapefile 等格式的属性文本。
+    ///     过滤器分别使用 GDAL/OGR 的属性表达式和 WKT 几何格式。读取结果会保留源数据的 FID（在 Int32 范围内）和可识别的空间参考 WKID。
+    /// </remarks>
     public OguLayer Read(string path, string? layerName = null, string? attributeFilter = null,
         string? spatialFilterWkt = null, Dictionary<string, object>? options = null)
     {
@@ -54,7 +59,7 @@ public class GdalReader : ILayerReader
         if (string.IsNullOrWhiteSpace(path))
             throw new ArgumentException("Path cannot be null or empty", nameof(path));
 
-        // 应用编码选项（如 SHAPE_ENCODING），确保 GBK 等编码正确读取
+        // SHAPE_ENCODING 是进程级配置；调用方在锁内完成设置、打开和读取，避免不同编码的并发读取互相覆盖。
         ApplyEncodingOption(options);
 
         OgrDataSource? dataSource = null;

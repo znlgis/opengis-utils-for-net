@@ -39,6 +39,11 @@ public class GdalWriter : ILayerWriter
     /// <exception cref="ArgumentNullException">当图层为 null 时抛出</exception>
     /// <exception cref="ArgumentException">当路径为空时抛出</exception>
     /// <exception cref="DataSourceException">当驱动不可用或创建数据源失败时抛出</exception>
+    /// <remarks>
+    ///     如果目标数据源已存在，写入前会尝试删除并重新创建。<paramref name="options"/> 支持
+    ///     <c>driver</c> 和 <c>encoding</c> 选项。空几何、无法解析的几何、字段转换失败及要素写入失败会汇总后抛出
+    ///     <see cref="DataSourceException"/>。
+    /// </remarks>
     public void Write(OguLayer layer, string path, string? layerName = null, Dictionary<string, object>? options = null)
     {
         if (layer == null)
@@ -214,6 +219,10 @@ public class GdalWriter : ILayerWriter
     /// <exception cref="ArgumentNullException">当图层为 null 时抛出</exception>
     /// <exception cref="ArgumentException">当路径为空时抛出</exception>
     /// <exception cref="DataSourceException">当数据源或图层无法打开时抛出</exception>
+    /// <remarks>
+    ///     追加操作不会删除已有数据源。输入字段必须能映射到目标图层；要素的非零 FID 会尝试保留。
+    ///     空几何、字段转换失败及要素写入失败会汇总后抛出 <see cref="DataSourceException"/>。
+    /// </remarks>
     public void Append(OguLayer layer, string path, string? layerName = null,
         Dictionary<string, object>? options = null)
     {

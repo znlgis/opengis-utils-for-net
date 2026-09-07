@@ -102,6 +102,11 @@ public static class PostgisUtil
     /// <param name="geomColumn">几何列名，默认为 "geom"</param>
     /// <exception cref="ArgumentException">当连接字符串或表名为空时抛出</exception>
     /// <exception cref="DataSourceException">当 PostgreSQL 数据源或空间索引创建失败时抛出</exception>
+    /// <remarks>
+    ///     方法通过 GDAL/OGR 的 PostgreSQL 驱动以读写模式打开数据源，并执行 GIST 索引 DDL。
+    ///     表名和几何列名仅允许字母、数字和下划线；当前实现不支持带引号、模式限定或其他复杂标识符。
+    ///     运行环境必须提供可用的 GDAL PostgreSQL 驱动、数据库连接和创建索引所需权限。
+    /// </remarks>
     public static void CreateSpatialIndex(string connectionString, string tableName, string geomColumn = "geom")
     {
         if (string.IsNullOrWhiteSpace(connectionString))
