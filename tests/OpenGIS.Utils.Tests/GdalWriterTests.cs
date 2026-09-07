@@ -149,6 +149,27 @@ public class GdalWriterTests : IDisposable
     }
 
     [Fact]
+    public void Write_ThrowsDataSourceExceptionWhenFieldCreationFails()
+    {
+        var layer = new OguLayer
+        {
+            Name = "points",
+            GeometryType = GeometryType.POINT,
+            Fields = new List<OguField>
+            {
+                new() { Name = "name", DataType = FieldDataType.STRING },
+                new() { Name = "name", DataType = FieldDataType.STRING }
+            }
+        };
+        layer.AddFeature(new OguFeature { Fid = 1, Wkt = "POINT (0 0)" });
+
+        var act = () => new GdalWriter().Write(layer, Path.Combine(_testDir, "duplicate-fields.gpkg"));
+
+        act.Should().Throw<DataSourceException>()
+            .WithMessage("*field*name*");
+    }
+
+    [Fact]
     public void Append_AddsFeaturesToExistingLayer()
     {
         var path = Path.Combine(_testDir, "points.gpkg");

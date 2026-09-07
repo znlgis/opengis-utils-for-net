@@ -102,8 +102,18 @@ public class GdalWriter : ILayerWriter
             foreach (var field in layer.Fields)
             {
                 using var fieldDefn = CreateOgrFieldDefn(field);
-                if (ogrLayer.CreateField(fieldDefn, 1) != 0)
-                    throw new SysException($"Failed to create field '{field.Name}'");
+                try
+                {
+                    if (ogrLayer.CreateField(fieldDefn, 1) != 0)
+                        throw new DataSourceException($"Failed to create field '{field.Name}'");
+                }
+                catch (SysException ex)
+                {
+                    if (ex is DataSourceException)
+                        throw;
+
+                    throw new DataSourceException($"Failed to create field '{field.Name}'", ex);
+                }
             }
 
             // 预计算字段索引映射，避免在要素循环内重复调用 GetFieldIndex
