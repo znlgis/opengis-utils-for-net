@@ -76,4 +76,15 @@ public class GdalReaderTests : IDisposable
         act.Should().Throw<FormatParseException>()
             .WithMessage("*spatial filter*WKT*");
     }
+
+    [Fact]
+    public void GetLayerNames_ThrowsDataSourceExceptionWhenPathCannotBeOpened()
+    {
+        var path = Path.Combine(_testDir, "missing.geojson");
+
+        var act = () => new GdalReader().GetLayerNames(path);
+
+        act.Should().Throw<DataSourceException>()
+            .WithMessage($"*{path}*");
+    }
 }

@@ -84,6 +84,7 @@ public class GdalReader : ILayerReader
     /// <param name="path">数据源路径</param>
     /// <returns>图层名称列表</returns>
     /// <exception cref="ArgumentException">当路径为空时抛出</exception>
+    /// <exception cref="DataSourceException">当无法打开数据源时抛出</exception>
     public IList<string> GetLayerNames(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -93,7 +94,7 @@ public class GdalReader : ILayerReader
 
         using var dataSource = Ogr.Open(path, 0);
         if (dataSource == null)
-            return layerNames;
+            throw new DataSourceException($"Failed to open data source: {path}");
 
         var layerCount = dataSource.GetLayerCount();
         for (int i = 0; i < layerCount; i++)
