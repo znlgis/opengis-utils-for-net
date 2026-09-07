@@ -187,6 +187,35 @@ public class GdalWriterTests : IDisposable
     }
 
     [Fact]
+    public void Append_ThrowsDataSourceExceptionWhenFeatureWriteFails()
+    {
+        var path = Path.Combine(_testDir, "append-invalid.gpkg");
+        var writer = new GdalWriter();
+        writer.Write(CreatePointLayer(1, "first", "POINT (0 0)"), path);
+
+        var appendedLayer = CreatePointLayer(2, "invalid", "NOT A GEOMETRY");
+        var act = () => writer.Append(appendedLayer, path);
+
+        act.Should().Throw<DataSourceException>()
+            .WithMessage("*1 个要素失败*");
+    }
+
+    [Fact]
+    public void Write_ThrowsDataSourceExceptionWhenFieldValueCannotBeConverted()
+    {
+        var layer = new OguLayer { Name = "points", GeometryType = GeometryType.POINT };
+        layer.AddField(new OguField { Name = "value", DataType = FieldDataType.INTEGER });
+        var feature = new OguFeature { Fid = 1, Wkt = "POINT (0 0)" };
+        feature.SetValue("value", "not-an-integer");
+        layer.AddFeature(feature);
+
+        var act = () => new GdalWriter().Write(layer, Path.Combine(_testDir, "invalid-value.gpkg"));
+
+        act.Should().Throw<DataSourceException>()
+            .WithMessage("*1 个要素失败*");
+    }
+
+    [Fact]
     public void Append_MapsFieldsWithoutCaseSensitivity()
     {
         var path = Path.Combine(_testDir, "case-insensitive.gpkg");

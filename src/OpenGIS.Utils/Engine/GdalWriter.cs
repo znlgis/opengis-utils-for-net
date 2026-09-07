@@ -38,7 +38,7 @@ public class GdalWriter : ILayerWriter
     /// <param name="options">附加选项字典，可以包含驱动名称、编码等</param>
     /// <exception cref="ArgumentNullException">当图层为 null 时抛出</exception>
     /// <exception cref="ArgumentException">当路径为空时抛出</exception>
-    /// <exception cref="SysException">当驱动不可用或创建数据源失败时抛出</exception>
+    /// <exception cref="DataSourceException">当驱动不可用或创建数据源失败时抛出</exception>
     public void Write(OguLayer layer, string path, string? layerName = null, Dictionary<string, object>? options = null)
     {
         if (layer == null)
@@ -160,7 +160,7 @@ public class GdalWriter : ILayerWriter
                         if (fieldIndexMap.TryGetValue(field.Name, out var fieldIndex))
                         {
                             var value = oguFeature.GetValue(field.Name);
-                            SetFieldValue(ogrFeature, fieldIndex, value, field.DataType);
+                            SetFieldValue(ogrFeature, fieldIndex, value, field.DataType, field.Name);
                         }
                     }
 
@@ -187,7 +187,7 @@ public class GdalWriter : ILayerWriter
             dataSource.SyncToDisk();
 
             if (failedCount > 0)
-                throw new SysException($"写入图层时 {failedCount} 个要素失败: {path}");
+                throw new DataSourceException($"写入图层时 {failedCount} 个要素失败: {path}");
         }
         finally
         {
@@ -272,7 +272,7 @@ public class GdalWriter : ILayerWriter
                 foreach (var field in layer.Fields)
                 {
                     var value = oguFeature.GetValue(field.Name);
-                    SetFieldValue(ogrFeature, fieldIndexMap[field.Name], value, field.DataType);
+                    SetFieldValue(ogrFeature, fieldIndexMap[field.Name], value, field.DataType, field.Name);
                 }
 
                 if (ogrLayer.CreateFeature(ogrFeature) != 0)
@@ -295,7 +295,7 @@ public class GdalWriter : ILayerWriter
 
         dataSource.SyncToDisk();
         if (failedCount > 0)
-            throw new SysException($"追加到图层时 {failedCount} 个要素失败: {path}");
+            throw new DataSourceException($"追加到图层时 {failedCount} 个要素失败: {path}");
     }
 
     private static void ValidateCollections(OguLayer layer)
@@ -354,7 +354,8 @@ public class GdalWriter : ILayerWriter
         return spatialReference;
     }
 
-    private void SetFieldValue(Feature feature, int fieldIndex, object? value, FieldDataType dataType)
+    private void SetFieldValue(Feature feature, int fieldIndex, object? value, FieldDataType dataType,
+        string fieldName)
     {
         if (value == null)
         {
@@ -362,29 +363,42 @@ public class GdalWriter : ILayerWriter
             return;
         }
 
-        switch (dataType)
+        try
         {
-            case FieldDataType.INTEGER:
-                feature.SetField(fieldIndex, Convert.ToInt32(value, CultureInfo.InvariantCulture));
-                break;
-            case FieldDataType.LONG:
-                feature.SetField(fieldIndex, Convert.ToInt64(value, CultureInfo.InvariantCulture));
-                break;
-            case FieldDataType.DOUBLE:
-            case FieldDataType.FLOAT:
-                feature.SetField(fieldIndex, Convert.ToDouble(value, CultureInfo.InvariantCulture));
-                break;
-            case FieldDataType.DATE:
-            case FieldDataType.DATETIME:
-                if (value is DateTime dt)
-                {
+            switch (dataType)
+            {
+                case FieldDataType.INTEGER:
+                    feature.SetField(fieldIndex, Convert.ToInt32(value, CultureInfo.InvariantCulture));
+                    break;
+                case FieldDataType.LONG:
+                    feature.SetField(fieldIndex, Convert.ToInt64(value, CultureInfo.InvariantCulture));
+                    break;
+                case FieldDataType.DOUBLE:
+                case FieldDataType.FLOAT:
+                    feature.SetField(fieldIndex, Convert.ToDouble(value, CultureInfo.InvariantCulture));
+                    break;
+                case FieldDataType.DATE:
+                case FieldDataType.DATETIME:
+                    if (value is not DateTime dt)
+                        throw new FormatException($"Value for date field '{fieldName}' is not a DateTime");
+
                     var seconds = dt.Second + (float)dt.Millisecond / 1000;
                     feature.SetField(fieldIndex, dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, seconds, 0);
-                }
-                break;
-            default:
-                feature.SetField(fieldIndex, value.ToString());
-                break;
+                    break;
+                default:
+                    feature.SetField(fieldIndex, value.ToString());
+                    break;
+            }
+
+            if (!feature.IsFieldSet(fieldIndex))
+                throw new SysException($"Failed to set field '{fieldName}'");
+        }
+        catch (SysException ex)
+        {
+            if (ex is DataSourceException)
+                throw;
+
+            throw new DataSourceException($"Failed to set field '{fieldName}'", ex);
         }
     }
 }

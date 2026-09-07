@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using OpenGIS.Utils.Configuration;
 using OpenGIS.Utils.Engine.Model.Layer;
+using OpenGIS.Utils.Exception;
 using OpenGIS.Utils.Utils;
 using OSGeo.OGR;
 using OgrDataSource = OSGeo.OGR.DataSource;
@@ -115,7 +116,7 @@ public static class ShpUtil
     ///     获取 Shapefile 边界
     /// </summary>
     /// <param name="shpPath">Shapefile 路径</param>
-    /// <returns>边界矩形，如果无法获取则返回 null</returns>
+    /// <returns>边界矩形</returns>
     /// <exception cref="FileNotFoundException">当 Shapefile 不存在时抛出</exception>
     public static Envelope? GetShapefileBounds(string shpPath)
     {
@@ -129,11 +130,11 @@ public static class ShpUtil
         {
             dataSource = Ogr.Open(shpPath, 0);
             if (dataSource == null)
-                return null;
+                throw new DataSourceException($"Failed to open data source: {shpPath}");
 
             var layer = dataSource.GetLayerByIndex(0);
             if (layer == null)
-                return null;
+                throw new DataSourceException($"No layers found in data source: {shpPath}");
 
             var envelope = new Envelope();
             layer.GetExtent(envelope, 1);

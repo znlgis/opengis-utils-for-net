@@ -143,4 +143,14 @@ public class CrsUtilTests
         act.Should().Throw<ArgumentException>()
             .WithMessage("*empty*");
     }
+
+    [Fact]
+    public void GetDh_ThrowsWhenCentroidCannotBeRead()
+    {
+        using var geometry = OgrGeometry.CreateFromWkt("POLYGON EMPTY");
+
+        var act = () => CrsUtil.GetDh(geometry!);
+
+        act.Should().Throw<ArgumentException>();
+    }
 }

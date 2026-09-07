@@ -97,23 +97,26 @@ public class GdalReader : ILayerReader
     /// <exception cref="DataSourceException">当无法打开数据源时抛出</exception>
     public IList<string> GetLayerNames(string path)
     {
-        if (string.IsNullOrWhiteSpace(path))
-            throw new ArgumentException("Path cannot be null or empty", nameof(path));
-
-        var layerNames = new List<string>();
-
-        using var dataSource = Ogr.Open(path, 0);
-        if (dataSource == null)
-            throw new DataSourceException($"Failed to open data source: {path}");
-
-        var layerCount = dataSource.GetLayerCount();
-        for (int i = 0; i < layerCount; i++)
+        lock (GlobalConfigLock)
         {
-            using var layer = dataSource.GetLayerByIndex(i);
-            if (layer != null) layerNames.Add(layer.GetName());
-        }
+            if (string.IsNullOrWhiteSpace(path))
+                throw new ArgumentException("Path cannot be null or empty", nameof(path));
 
-        return layerNames;
+            var layerNames = new List<string>();
+
+            using var dataSource = Ogr.Open(path, 0);
+            if (dataSource == null)
+                throw new DataSourceException($"Failed to open data source: {path}");
+
+            var layerCount = dataSource.GetLayerCount();
+            for (int i = 0; i < layerCount; i++)
+            {
+                using var layer = dataSource.GetLayerByIndex(i);
+                if (layer != null) layerNames.Add(layer.GetName());
+            }
+
+            return layerNames;
+        }
     }
 
     private OguLayer ReadOgrLayer(Layer ogrLayer, string? attributeFilter, string? spatialFilterWkt)

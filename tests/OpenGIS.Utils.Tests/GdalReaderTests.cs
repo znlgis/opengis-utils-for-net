@@ -2,8 +2,11 @@ using FluentAssertions;
 using OpenGIS.Utils.Engine;
 using OpenGIS.Utils.Engine.Enums;
 using OpenGIS.Utils.Engine.Model.Layer;
+using OpenGIS.Utils.Configuration;
 using OpenGIS.Utils.Exception;
 using System.Text;
+using OSGeo.OGR;
+using OgrGeometry = OSGeo.OGR.Geometry;
 
 namespace OpenGIS.Utils.Tests;
 
@@ -113,13 +116,20 @@ public class GdalReaderTests : IDisposable
     public void Read_ThrowsFormatParseExceptionWhenDateTimeFieldIsInvalid()
     {
         var path = Path.Combine(_testDir, "invalid-datetime.gpkg");
-        var layer = new OguLayer { Name = "events", GeometryType = GeometryType.POINT };
-        layer.AddField(new OguField { Name = "occurred", DataType = FieldDataType.DATETIME });
-        var feature = new OguFeature { Fid = 1, Wkt = "POINT (0 0)" };
-        feature.SetValue("occurred", "not a date");
-        layer.AddFeature(feature);
-
-        new GdalWriter().Write(layer, path);
+        GdalConfiguration.ConfigureGdal();
+        var driver = Ogr.GetDriverByName("GPKG");
+        using (var dataSource = driver!.CreateDataSource(path, Array.Empty<string>()))
+        using (var ogrLayer = dataSource!.CreateLayer("events", null, wkbGeometryType.wkbPoint, Array.Empty<string>()))
+        using (var fieldDefinition = new FieldDefn("occurred", FieldType.OFTDateTime))
+        {
+            ogrLayer.CreateField(fieldDefinition, 1);
+            using var ogrFeature = new Feature(ogrLayer.GetLayerDefn());
+            using var geometry = OgrGeometry.CreateFromWkt("POINT (0 0)");
+            ogrFeature.SetGeometry(geometry);
+            ogrFeature.SetField(0, "not a date");
+            ogrLayer.CreateFeature(ogrFeature);
+            dataSource.SyncToDisk();
+        }
 
         var act = () => new GdalReader().Read(path);
 
