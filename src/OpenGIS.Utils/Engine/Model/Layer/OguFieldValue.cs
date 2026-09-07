@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 
 namespace OpenGIS.Utils.Engine.Model.Layer;
 
@@ -50,7 +51,7 @@ public class OguFieldValue
     {
         if (IsNull) return null;
         if (Value is int i) return i;
-        if (int.TryParse(Value?.ToString(), out int result))
+        if (int.TryParse(Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int result))
             return result;
         return null;
     }
@@ -63,7 +64,7 @@ public class OguFieldValue
     {
         if (IsNull) return null;
         if (Value is long l) return l;
-        if (long.TryParse(Value?.ToString(), out long result))
+        if (long.TryParse(Value?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out long result))
             return result;
         return null;
     }
@@ -76,7 +77,8 @@ public class OguFieldValue
     {
         if (IsNull) return null;
         if (Value is double d) return d;
-        if (double.TryParse(Value?.ToString(), out double result))
+        if (double.TryParse(Value?.ToString(), NumberStyles.Float | NumberStyles.AllowThousands,
+                CultureInfo.InvariantCulture, out double result))
             return result;
         return null;
     }
@@ -89,7 +91,8 @@ public class OguFieldValue
     {
         if (IsNull) return null;
         if (Value is float f) return f;
-        if (float.TryParse(Value?.ToString(), out float result))
+        if (float.TryParse(Value?.ToString(), NumberStyles.Float | NumberStyles.AllowThousands,
+                CultureInfo.InvariantCulture, out float result))
             return result;
         return null;
     }
@@ -115,7 +118,8 @@ public class OguFieldValue
     {
         if (IsNull) return null;
         if (Value is DateTime dt) return dt;
-        if (DateTime.TryParse(Value?.ToString(), out DateTime result))
+        if (DateTime.TryParse(Value?.ToString(), CultureInfo.InvariantCulture, DateTimeStyles.None,
+                out DateTime result))
             return result;
         return null;
     }
@@ -128,7 +132,8 @@ public class OguFieldValue
     {
         if (IsNull) return null;
         if (Value is decimal dec) return dec;
-        if (decimal.TryParse(Value?.ToString(), out decimal result))
+        if (decimal.TryParse(Value?.ToString(), NumberStyles.Number, CultureInfo.InvariantCulture,
+                out decimal result))
             return result;
         return null;
     }

@@ -1,8 +1,10 @@
+using System.Globalization;
 using FluentAssertions;
 using OpenGIS.Utils.Engine.Model.Layer;
 
 namespace OpenGIS.Utils.Tests;
 
+[Collection("CultureSensitive")]
 public class OguFieldValueTests
 {
     [Fact]
@@ -114,6 +116,23 @@ public class OguFieldValueTests
     }
 
     [Fact]
+    public void GetDoubleValue_WithInvariantString_IsNotAffectedByCurrentCulture()
+    {
+        var original = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+            var fv = new OguFieldValue("3.14");
+
+            fv.GetDoubleValue().Should().Be(3.14);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
+    }
+
+    [Fact]
     public void GetDoubleValue_WithNull_ReturnsNull()
     {
         var fv = new OguFieldValue(null);
@@ -187,6 +206,23 @@ public class OguFieldValueTests
         fv.GetDateTimeValue()!.Value.Year.Should().Be(2024);
         fv.GetDateTimeValue()!.Value.Month.Should().Be(1);
         fv.GetDateTimeValue()!.Value.Day.Should().Be(15);
+    }
+
+    [Fact]
+    public void GetDateTimeValue_WithIsoString_IsNotAffectedByCurrentCulture()
+    {
+        var original = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+            var fv = new OguFieldValue("2024-01-15T10:30:00");
+
+            fv.GetDateTimeValue().Should().Be(new DateTime(2024, 1, 15, 10, 30, 0));
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
     }
 
     [Fact]

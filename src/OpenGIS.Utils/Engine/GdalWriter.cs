@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using Microsoft.Extensions.Logging;
@@ -257,14 +258,14 @@ public class GdalWriter : ILayerWriter
         switch (dataType)
         {
             case FieldDataType.INTEGER:
-                feature.SetField(fieldIndex, Convert.ToInt32(value));
+                feature.SetField(fieldIndex, Convert.ToInt32(value, CultureInfo.InvariantCulture));
                 break;
             case FieldDataType.LONG:
-                feature.SetField(fieldIndex, Convert.ToInt64(value));
+                feature.SetField(fieldIndex, Convert.ToInt64(value, CultureInfo.InvariantCulture));
                 break;
             case FieldDataType.DOUBLE:
             case FieldDataType.FLOAT:
-                feature.SetField(fieldIndex, Convert.ToDouble(value));
+                feature.SetField(fieldIndex, Convert.ToDouble(value, CultureInfo.InvariantCulture));
                 break;
             case FieldDataType.DATE:
             case FieldDataType.DATETIME:
