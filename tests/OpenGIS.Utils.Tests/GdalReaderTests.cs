@@ -59,4 +59,21 @@ public class GdalReaderTests : IDisposable
         act.Should().Throw<DataSourceException>()
             .WithMessage($"*{path}*");
     }
+
+    [Fact]
+    public void Read_ThrowsFormatParseExceptionWhenSpatialFilterIsInvalid()
+    {
+        var path = Path.Combine(_testDir, "source.geojson");
+        File.WriteAllText(path, """
+        {
+          "type": "FeatureCollection",
+          "features": []
+        }
+        """);
+
+        var act = () => new GdalReader().Read(path, spatialFilterWkt: "NOT A GEOMETRY");
+
+        act.Should().Throw<FormatParseException>()
+            .WithMessage("*spatial filter*WKT*");
+    }
 }

@@ -141,16 +141,24 @@ public class GdalReader : ILayerReader
 
         // 应用空间过滤
         if (!string.IsNullOrWhiteSpace(spatialFilterWkt))
+        {
             try
             {
                 using var filterGeom = OSGeo.OGR.Geometry.CreateFromWkt(spatialFilterWkt);
-                if (filterGeom != null) ogrLayer.SetSpatialFilter(filterGeom);
+                if (filterGeom == null)
+                    throw new FormatParseException($"Invalid spatial filter WKT: {spatialFilterWkt}");
+
+                ogrLayer.SetSpatialFilter(filterGeom);
+            }
+            catch (FormatParseException)
+            {
+                throw;
             }
             catch (SysException ex)
             {
-                // 空间过滤几何无效时忽略过滤，但记录诊断信息
-                Logger.LogWarning(ex, "空间过滤 WKT 无效，已忽略空间过滤: {Wkt}", spatialFilterWkt);
+                throw new FormatParseException($"Invalid spatial filter WKT: {spatialFilterWkt}", ex);
             }
+        }
 
         // 预计算字段索引映射，避免在要素循环内重复调用 GetFieldIndex
         var fieldIndexMap = new Dictionary<string, int>(layer.Fields.Count);
