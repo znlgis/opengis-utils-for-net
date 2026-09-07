@@ -84,6 +84,17 @@ public class GtTxtUtilTests
     }
 
     [Fact]
+    public void ParseTxtLine_ParsesSignedAndScientificCoordinates()
+    {
+        var coord = GtTxtUtil.ParseTxtLine("J3 1 -1.25e+3 -4.5E-2 -6.75e1");
+
+        coord.Should().NotBeNull();
+        coord!.X.Should().Be(-1250);
+        coord.Y.Should().Be(-0.045);
+        coord.Z.Should().Be(-67.5);
+    }
+
+    [Fact]
     public void FormatTxtLine_RoundTripsWithParse()
     {
         var line = GtTxtUtil.ParseTxtLine("J1 2 500000.5 4400000.25 3.5 角点");

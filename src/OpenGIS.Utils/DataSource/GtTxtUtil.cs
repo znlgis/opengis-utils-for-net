@@ -21,7 +21,7 @@ public static class GtTxtUtil
     private static readonly ILogger Logger = OguLogging.CreateLogger("OpenGIS.Utils.DataSource.GtTxtUtil");
 
     private static readonly Regex CoordinateLineRegex = new(
-        @"^\s*(\S+)\s+(\S+)\s+([\d.]+)\s+([\d.]+)\s*([\d.]*)\s*(.*?)$",
+        @"^\s*(\S+)\s+(\S+)\s+([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)\s+([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)\s*([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?)?\s*(.*?)$",
         RegexOptions.Compiled);
 
     /// <summary>
