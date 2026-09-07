@@ -82,7 +82,7 @@ public class OguField
             Precision = Precision,
             Scale = Scale,
             IsNullable = IsNullable,
-            DefaultValue = DefaultValue
+            DefaultValue = OguFieldValue.CloneValue(DefaultValue)
         };
     }
 }

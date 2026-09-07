@@ -72,6 +72,31 @@ public class OguLayerTests
     }
 
     [Fact]
+    public void Validate_ThrowsWhenFieldIsNull()
+    {
+        var layer = new OguLayer { Name = "Test" };
+        layer.Fields.Add(null!);
+
+        var act = () => layer.Validate();
+
+        act.Should().Throw<LayerValidationException>()
+            .WithMessage("*field*null*");
+    }
+
+    [Fact]
+    public void Validate_ThrowsWhenFeatureIsNull()
+    {
+        var layer = new OguLayer { Name = "Test" };
+        layer.Fields.Add(new OguField { Name = "F1" });
+        layer.Features.Add(null!);
+
+        var act = () => layer.Validate();
+
+        act.Should().Throw<LayerValidationException>()
+            .WithMessage("*feature*null*");
+    }
+
+    [Fact]
     public void Validate_ThrowsWhenFeatureHasUndefinedAttribute()
     {
         var layer = new OguLayer { Name = "Test" };
@@ -171,6 +196,16 @@ public class OguLayerTests
     }
 
     [Fact]
+    public void AddField_ThrowsWhenFieldIsNull()
+    {
+        var layer = new OguLayer { Name = "Test" };
+
+        var act = () => layer.AddField(null!);
+
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
     public void AddFeature_AddsFeature()
     {
         var layer = new OguLayer { Name = "Test" };
@@ -180,6 +215,36 @@ public class OguLayerTests
 
         layer.Features.Should().HaveCount(1);
         layer.Features[0].Fid.Should().Be(1);
+    }
+
+    [Fact]
+    public void AddFeature_ThrowsWhenFeatureIsNull()
+    {
+        var layer = new OguLayer { Name = "Test" };
+
+        var act = () => layer.AddFeature(null!);
+
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void Clone_ClonesMutableValues()
+    {
+        var layer = CreateValidLayer();
+        var bytes = new byte[] { 1, 2, 3 };
+        layer.Features[0].SetValue("Bytes", bytes);
+        layer.Fields.Add(new OguField { Name = "Bytes", DataType = FieldDataType.BINARY, DefaultValue = bytes });
+        layer.Metadata = new OguLayerMetadata();
+        layer.Metadata.ExtendedProperties["Bytes"] = bytes;
+
+        var clone = layer.Clone();
+        ((byte[])clone.Features[0].GetValue("Bytes")!)[0] = 9;
+        ((byte[])clone.Fields[^1].DefaultValue!)[1] = 9;
+        ((byte[])clone.Metadata!.ExtendedProperties["Bytes"])[2] = 9;
+
+        ((byte[])layer.Features[0].GetValue("Bytes")!).Should().Equal(1, 2, 3);
+        ((byte[])layer.Fields[^1].DefaultValue!).Should().Equal(1, 2, 3);
+        ((byte[])layer.Metadata!.ExtendedProperties["Bytes"]).Should().Equal(1, 2, 3);
     }
 
     [Fact]

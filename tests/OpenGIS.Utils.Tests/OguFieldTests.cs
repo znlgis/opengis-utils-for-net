@@ -38,6 +38,17 @@ public class OguFieldTests
     }
 
     [Fact]
+    public void Clone_ClonesMutableDefaultValue()
+    {
+        var field = new OguField { DefaultValue = new byte[] { 1, 2 } };
+
+        var clone = field.Clone();
+        ((byte[])clone.DefaultValue!)[0] = 9;
+
+        ((byte[])field.DefaultValue!).Should().Equal(1, 2);
+    }
+
+    [Fact]
     public void ToJson_FromJson_RoundTrip()
     {
         var field = new OguField

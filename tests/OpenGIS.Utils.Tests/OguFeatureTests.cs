@@ -106,6 +106,18 @@ public class OguFeatureTests
     }
 
     [Fact]
+    public void Clone_ClonesMutableAttributeValue()
+    {
+        var feature = new OguFeature();
+        feature.SetValue("Bytes", new byte[] { 1, 2 });
+
+        var clone = feature.Clone();
+        ((byte[])clone.GetValue("Bytes")!)[0] = 9;
+
+        ((byte[])feature.GetValue("Bytes")!).Should().Equal(1, 2);
+    }
+
+    [Fact]
     public void ToJson_FromJson_RoundTrip()
     {
         var feature = new OguFeature { Fid = 1, Wkt = "POINT (10 20)" };

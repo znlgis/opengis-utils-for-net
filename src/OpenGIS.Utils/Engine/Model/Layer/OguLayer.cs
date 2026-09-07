@@ -66,15 +66,25 @@ public class OguLayer
         // 验证字段名称唯一性 - use HashSet for better performance
         var fieldNameSet = new HashSet<string>();
         foreach (var field in Fields)
+        {
+            if (field == null)
+                throw new LayerValidationException("Layer contains a field that is null");
+
             if (!fieldNameSet.Add(field.Name))
                 throw new LayerValidationException($"Field name '{field.Name}' is duplicated");
+        }
 
         // 验证要素属性与字段定义一致
         foreach (var feature in Features)
+        {
+            if (feature == null)
+                throw new LayerValidationException("Layer contains a feature that is null");
+
         foreach (var fieldName in feature.Attributes.Keys)
             if (!fieldNameSet.Contains(fieldName))
                 throw new LayerValidationException(
                     $"Feature contains attribute '{fieldName}' that is not defined in Fields");
+        }
     }
 
     /// <summary>
@@ -140,7 +150,8 @@ public class OguLayer
                 ModifyTime = Metadata.ModifyTime
             };
 
-            foreach (var kvp in Metadata.ExtendedProperties) clone.Metadata.ExtendedProperties[kvp.Key] = kvp.Value;
+            foreach (var kvp in Metadata.ExtendedProperties)
+                clone.Metadata.ExtendedProperties[kvp.Key] = OguFieldValue.CloneValue(kvp.Value)!;
         }
 
         return clone;
@@ -163,6 +174,9 @@ public class OguLayer
     /// <exception cref="LayerValidationException">当字段名称已存在时抛出</exception>
     public void AddField(OguField field)
     {
+        if (field == null)
+            throw new ArgumentNullException(nameof(field));
+
         if (Fields.Any(f => f.Name == field.Name))
             throw new LayerValidationException($"Field '{field.Name}' already exists");
         Fields.Add(field);
@@ -174,6 +188,9 @@ public class OguLayer
     /// <param name="feature">要素对象</param>
     public void AddFeature(OguFeature feature)
     {
+        if (feature == null)
+            throw new ArgumentNullException(nameof(feature));
+
         Features.Add(feature);
     }
 

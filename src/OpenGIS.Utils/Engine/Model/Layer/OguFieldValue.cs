@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Globalization;
 
 namespace OpenGIS.Utils.Engine.Model.Layer;
@@ -28,6 +30,44 @@ public class OguFieldValue
     ///     原始值
     /// </summary>
     public object? Value { get; set; }
+
+    internal static object? CloneValue(object? value)
+    {
+        if (value is null || value is string || value.GetType().IsValueType)
+            return value;
+
+        if (value is byte[] bytes)
+            return bytes.Clone();
+
+        if (value is Array array)
+        {
+            var clone = (Array)array.Clone();
+            for (var index = 0; index < array.Length; index++)
+                clone.SetValue(CloneValue(array.GetValue(index)), index);
+            return clone;
+        }
+
+        if (value is ICloneable cloneable)
+            return cloneable.Clone();
+
+        if (value is IDictionary dictionary)
+        {
+            var clone = new Dictionary<object, object?>();
+            foreach (DictionaryEntry entry in dictionary)
+                clone[entry.Key] = CloneValue(entry.Value);
+            return clone;
+        }
+
+        if (value is IList list)
+        {
+            var clone = new List<object?>();
+            foreach (var item in list)
+                clone.Add(CloneValue(item));
+            return clone;
+        }
+
+        return value;
+    }
 
     /// <summary>
     ///     是否为空

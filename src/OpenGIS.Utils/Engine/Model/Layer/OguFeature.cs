@@ -101,7 +101,8 @@ public class OguFeature
     {
         var clone = new OguFeature { Fid = Fid, Wkt = Wkt };
 
-        foreach (var kvp in Attributes) clone.Attributes[kvp.Key] = new OguFieldValue(kvp.Value.Value);
+        foreach (var kvp in Attributes)
+            clone.Attributes[kvp.Key] = new OguFieldValue(OguFieldValue.CloneValue(kvp.Value.Value));
 
         return clone;
     }
