@@ -27,3 +27,27 @@ jobs:
 
     - name: Run tests
       run: dotnet test --configuration Release --no-build --verbosity normal
+
+    - name: Pack NuGet package
+      run: dotnet pack src/OpenGIS.Utils/OpenGIS.Utils.csproj --configuration Release --no-build --output ./artifacts/package
+
+    - name: Validate NuGet package contents
+      shell: pwsh
+      run: |
+        $package = Get-ChildItem ./artifacts/package -Filter '*.nupkg' | Where-Object { $_.Name -notlike '*.symbols.nupkg' } | Select-Object -First 1
+        if ($null -eq $package) { throw 'NuGet package was not created.' }
+
+        $extractPath = Join-Path $env:RUNNER_TEMP 'opengis-utils-package'
+        $archivePath = Join-Path $env:RUNNER_TEMP 'opengis-utils-package.zip'
+        Copy-Item -LiteralPath $package.FullName -Destination $archivePath -Force
+        Expand-Archive -LiteralPath $archivePath -DestinationPath $extractPath -Force
+
+        foreach ($requiredFile in @(
+          'README.md',
+          'lib/netstandard2.0/OpenGIS.Utils.dll',
+          'lib/netstandard2.0/OpenGIS.Utils.xml'
+        )) {
+          if (-not (Test-Path (Join-Path $extractPath $requiredFile))) {
+            throw "NuGet package is missing required file: $requiredFile"
+          }
+        }

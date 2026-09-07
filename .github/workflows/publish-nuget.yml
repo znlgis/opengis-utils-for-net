@@ -19,7 +19,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '8.0.x'
+        dotnet-version: '10.0.x'
     
     - name: Extract version from tag
       id: get_version
@@ -47,6 +47,27 @@ jobs:
     
     - name: Pack NuGet package
       run: dotnet pack src/OpenGIS.Utils/OpenGIS.Utils.csproj --configuration Release --no-build --output ./nupkg
+
+    - name: Validate NuGet package contents
+      shell: pwsh
+      run: |
+        $package = Get-ChildItem ./nupkg -Filter '*.nupkg' | Where-Object { $_.Name -notlike '*.symbols.nupkg' } | Select-Object -First 1
+        if ($null -eq $package) { throw 'NuGet package was not created.' }
+
+        $extractPath = Join-Path $env:RUNNER_TEMP 'opengis-utils-package'
+        $archivePath = Join-Path $env:RUNNER_TEMP 'opengis-utils-package.zip'
+        Copy-Item -LiteralPath $package.FullName -Destination $archivePath -Force
+        Expand-Archive -LiteralPath $archivePath -DestinationPath $extractPath -Force
+
+        foreach ($requiredFile in @(
+          'README.md',
+          'lib/netstandard2.0/OpenGIS.Utils.dll',
+          'lib/netstandard2.0/OpenGIS.Utils.xml'
+        )) {
+          if (-not (Test-Path (Join-Path $extractPath $requiredFile))) {
+            throw "NuGet package is missing required file: $requiredFile"
+          }
+        }
     
     - name: Publish to NuGet.org
       run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
@@ -57,4 +78,4 @@ jobs:
         files: ./nupkg/*.nupkg
         generate_release_notes: true
       env:
-        GITHUB_TOKEN: ${{ secrets.PERSONAL_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
