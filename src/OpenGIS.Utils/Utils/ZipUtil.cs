@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using ICSharpCode.SharpZipLib.Core;
 using ICSharpCode.SharpZipLib.Zip;
@@ -14,6 +15,7 @@ public static class ZipUtil
 {
     private const int CompressionLevel = 9;
     private const int BufferSize = 4096;
+    private static readonly object ZipStringsLock = new();
 
     /// <summary>
     ///     压缩文件夹
@@ -42,16 +44,19 @@ public static class ZipUtil
         if (!string.IsNullOrEmpty(outputDirectory) && !Directory.Exists(outputDirectory))
             Directory.CreateDirectory(outputDirectory);
 
-        using var fsOut = File.Create(zipPath);
-        using var zipStream = new ZipOutputStream(fsOut);
+        lock (ZipStringsLock)
+        {
+            using var fsOut = File.Create(zipPath);
+            using var zipStream = new ZipOutputStream(fsOut);
 
-        zipStream.SetLevel(CompressionLevel);
+            zipStream.SetLevel(CompressionLevel);
 #pragma warning disable CS0618 // ZipStrings.CodePage is obsolete but StringCodec not available on stream in SharpZipLib 1.4.2
-        ZipStrings.CodePage = encoding.CodePage;
+            ZipStrings.CodePage = encoding.CodePage;
 #pragma warning restore CS0618
 
-        var folderOffset = folderPath.Length + (folderPath.EndsWith(Path.DirectorySeparatorChar.ToString()) ? 0 : 1);
-        CompressFolder(folderPath, zipStream, folderOffset);
+            var folderOffset = folderPath.Length + (folderPath.EndsWith(Path.DirectorySeparatorChar.ToString()) ? 0 : 1);
+            CompressFolder(folderPath, zipStream, folderOffset);
+        }
     }
 
     /// <summary>
@@ -80,39 +85,36 @@ public static class ZipUtil
         if (!Directory.Exists(destPath))
             Directory.CreateDirectory(destPath);
 
-        using var fsInput = File.OpenRead(zipPath);
-        using var zipInputStream = new ZipInputStream(fsInput);
+        lock (ZipStringsLock)
+        {
+            using var fsInput = File.OpenRead(zipPath);
+            using var zipInputStream = new ZipInputStream(fsInput);
 #pragma warning disable CS0618 // ZipStrings.CodePage is obsolete but StringCodec not available on stream in SharpZipLib 1.4.2
-        ZipStrings.CodePage = encoding.CodePage;
+            ZipStrings.CodePage = encoding.CodePage;
 #pragma warning restore CS0618
 
-        var buffer = new byte[BufferSize];
-        ZipEntry? theEntry;
+            var buffer = new byte[BufferSize];
+            ZipEntry? theEntry;
 
-        var destFullPath = Path.GetFullPath(destPath);
-        if (!destFullPath.EndsWith(Path.DirectorySeparatorChar.ToString()))
-            destFullPath += Path.DirectorySeparatorChar;
+            var destFullPath = Path.GetFullPath(destPath);
+            if (!destFullPath.EndsWith(Path.DirectorySeparatorChar.ToString()))
+                destFullPath += Path.DirectorySeparatorChar;
 
-        while ((theEntry = zipInputStream.GetNextEntry()) != null)
-        {
-            var directoryName = Path.GetDirectoryName(theEntry.Name);
-            var fileName = Path.GetFileName(theEntry.Name);
-
-            // Create directory
-            if (!string.IsNullOrEmpty(directoryName))
+            while ((theEntry = zipInputStream.GetNextEntry()) != null)
             {
-                var dirPath = Path.GetFullPath(Path.Combine(destPath, directoryName));
-                if (!dirPath.StartsWith(destFullPath))
-                    throw new IOException($"Entry is outside of the target dir: {theEntry.Name}");
-                Directory.CreateDirectory(dirPath);
-            }
+                var entryPath = GetSafeEntryPath(destPath, destFullPath, theEntry.Name);
+                var directoryName = Path.GetDirectoryName(entryPath);
 
-            if (!string.IsNullOrEmpty(fileName))
-            {
-                var fullPath = Path.GetFullPath(Path.Combine(destPath, theEntry.Name));
-                if (!fullPath.StartsWith(destFullPath))
-                    throw new IOException($"Entry is outside of the target dir: {theEntry.Name}");
-                using var streamWriter = File.Create(fullPath);
+                if (theEntry.IsDirectory || string.IsNullOrEmpty(Path.GetFileName(entryPath)))
+                {
+                    Directory.CreateDirectory(entryPath);
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(directoryName))
+                    Directory.CreateDirectory(directoryName);
+
+                using var streamWriter = File.Create(entryPath);
                 StreamUtils.Copy(zipInputStream, streamWriter, buffer);
             }
         }
@@ -133,26 +135,29 @@ public static class ZipUtil
         if (!string.IsNullOrEmpty(outputDirectory) && !Directory.Exists(outputDirectory))
             Directory.CreateDirectory(outputDirectory);
 
-        using var fsOut = File.Create(zipPath);
-        using var zipStream = new ZipOutputStream(fsOut);
-
-        zipStream.SetLevel(CompressionLevel);
-        var buffer = new byte[BufferSize];
-
-        foreach (var filePath in filePaths)
+        lock (ZipStringsLock)
         {
-            if (!File.Exists(filePath))
-                continue;
+            using var fsOut = File.Create(zipPath);
+            using var zipStream = new ZipOutputStream(fsOut);
 
-            var fi = new FileInfo(filePath);
-            var newEntry = new ZipEntry(fi.Name) { DateTime = fi.LastWriteTime, Size = fi.Length };
+            zipStream.SetLevel(CompressionLevel);
+            var buffer = new byte[BufferSize];
 
-            zipStream.PutNextEntry(newEntry);
+            foreach (var filePath in filePaths)
+            {
+                if (!File.Exists(filePath))
+                    throw new FileNotFoundException("Input file not found", filePath);
 
-            using var streamReader = File.OpenRead(filePath);
-            StreamUtils.Copy(streamReader, zipStream, buffer);
+                var fi = new FileInfo(filePath);
+                var newEntry = new ZipEntry(fi.Name) { DateTime = fi.LastWriteTime, Size = fi.Length };
 
-            zipStream.CloseEntry();
+                zipStream.PutNextEntry(newEntry);
+
+                using var streamReader = File.OpenRead(filePath);
+                StreamUtils.Copy(streamReader, zipStream, buffer);
+
+                zipStream.CloseEntry();
+            }
         }
     }
 
@@ -178,5 +183,21 @@ public static class ZipUtil
 
         var folders = Directory.GetDirectories(path);
         foreach (var folder in folders) CompressFolder(folder, zipStream, folderOffset);
+    }
+
+    private static string GetSafeEntryPath(string destPath, string destFullPath, string entryName)
+    {
+        var normalizedEntryName = entryName.Replace('/', Path.DirectorySeparatorChar)
+            .Replace('\\', Path.DirectorySeparatorChar);
+        var fullPath = Path.GetFullPath(Path.Combine(destPath, normalizedEntryName));
+        var comparison = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+
+        if (Path.IsPathRooted(normalizedEntryName) ||
+            !fullPath.StartsWith(destFullPath, comparison))
+            throw new IOException($"Entry is outside of the target dir: {entryName}");
+
+        return fullPath;
     }
 }

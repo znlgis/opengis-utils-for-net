@@ -68,6 +68,61 @@ public class ZipUtilTests : IDisposable
     }
 
     [Fact]
+    public void CompressFiles_ThrowsWhenAnyInputFileIsMissing()
+    {
+        var existingFile = Path.Combine(_testDir, "existing.txt");
+        var missingFile = Path.Combine(_testDir, "missing.txt");
+        File.WriteAllText(existingFile, "content");
+
+        var act = () => ZipUtil.CompressFiles(
+            new[] { existingFile, missingFile },
+            Path.Combine(_testDir, "output.zip"));
+
+        act.Should().Throw<FileNotFoundException>()
+            .Which.FileName.Should().Be(missingFile);
+    }
+
+    [Fact]
+    public void Unzip_RejectsEntryOutsideTargetWhenPathUsesMixedSeparators()
+    {
+        var zipPath = Path.Combine(_testDir, "mixed-separators.zip");
+        using (var fsOut = File.Create(zipPath))
+        using (var zipStream = new ICSharpCode.SharpZipLib.Zip.ZipOutputStream(fsOut))
+        {
+            var entry = new ICSharpCode.SharpZipLib.Zip.ZipEntry("..\\..\\outside.txt");
+            zipStream.PutNextEntry(entry);
+            zipStream.Write(new byte[] { 1 }, 0, 1);
+            zipStream.CloseEntry();
+        }
+
+        var destDir = Path.Combine(_testDir, "safe_dest");
+        var act = () => ZipUtil.Unzip(zipPath, destDir);
+
+        act.Should().Throw<IOException>();
+        File.Exists(Path.Combine(_testDir, "outside.txt")).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Unzip_RejectsEntryThatOnlySharesTargetDirectoryPrefix()
+    {
+        var zipPath = Path.Combine(_testDir, "prefix-collision.zip");
+        using (var fsOut = File.Create(zipPath))
+        using (var zipStream = new ICSharpCode.SharpZipLib.Zip.ZipOutputStream(fsOut))
+        {
+            var entry = new ICSharpCode.SharpZipLib.Zip.ZipEntry("../safe_dest_backup/escaped.txt");
+            zipStream.PutNextEntry(entry);
+            zipStream.Write(new byte[] { 1 }, 0, 1);
+            zipStream.CloseEntry();
+        }
+
+        var destDir = Path.Combine(_testDir, "safe_dest");
+        var act = () => ZipUtil.Unzip(zipPath, destDir);
+
+        act.Should().Throw<IOException>();
+        File.Exists(Path.Combine(_testDir, "safe_dest_backup", "escaped.txt")).Should().BeFalse();
+    }
+
+    [Fact]
     public void Zip_ThrowsOnNonexistentFolder()
     {
         var missingDir = Path.Combine(_testDir, "does_not_exist");
