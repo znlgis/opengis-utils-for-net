@@ -43,6 +43,41 @@ public class GdalWriterTests : IDisposable
     }
 
     [Fact]
+    public void Write_ThrowsArgumentExceptionWhenFeaturesCollectionIsNull()
+    {
+        var layer = new OguLayer
+        {
+            Name = "points",
+            GeometryType = GeometryType.POINT,
+            Features = null!
+        };
+
+        var act = () => new GdalWriter().Write(layer, Path.Combine(_testDir, "points.geojson"));
+
+        act.Should().Throw<ArgumentException>()
+            .WithMessage("*features*");
+    }
+
+    [Fact]
+    public void Append_ThrowsArgumentExceptionWhenFieldsCollectionIsNull()
+    {
+        var path = Path.Combine(_testDir, "points.gpkg");
+        new GdalWriter().Write(CreatePointLayer(1, "first", "POINT (0 0)"), path);
+
+        var layer = new OguLayer
+        {
+            Name = "points",
+            GeometryType = GeometryType.POINT,
+            Fields = null!
+        };
+
+        var act = () => new GdalWriter().Append(layer, path);
+
+        act.Should().Throw<ArgumentException>()
+            .WithMessage("*fields*");
+    }
+
+    [Fact]
     public void Write_PreservesLayerSpatialReference()
     {
         var layer = new OguLayer

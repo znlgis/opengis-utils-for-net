@@ -46,6 +46,8 @@ public class GdalWriter : ILayerWriter
         if (string.IsNullOrWhiteSpace(path))
             throw new ArgumentException("Path cannot be null or empty", nameof(path));
 
+        ValidateCollections(layer);
+
         // 推断驱动名称
         string driverName = InferDriverName(path, options);
         var driver = Ogr.GetDriverByName(driverName);
@@ -210,6 +212,8 @@ public class GdalWriter : ILayerWriter
         if (string.IsNullOrWhiteSpace(path))
             throw new ArgumentException("Path cannot be null or empty", nameof(path));
 
+        ValidateCollections(layer);
+
         using var dataSource = Ogr.Open(path, 1);
         if (dataSource == null)
             throw new DataSourceException($"Failed to open data source for appending: {path}");
@@ -282,6 +286,15 @@ public class GdalWriter : ILayerWriter
         dataSource.SyncToDisk();
         if (failedCount > 0)
             throw new SysException($"追加到图层时 {failedCount} 个要素失败: {path}");
+    }
+
+    private static void ValidateCollections(OguLayer layer)
+    {
+        if (layer.Fields == null)
+            throw new ArgumentException("Layer fields collection cannot be null", nameof(layer));
+
+        if (layer.Features == null)
+            throw new ArgumentException("Layer features collection cannot be null", nameof(layer));
     }
 
     private string InferDriverName(string path, Dictionary<string, object>? options)
