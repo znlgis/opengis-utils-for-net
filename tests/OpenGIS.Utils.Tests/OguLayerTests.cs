@@ -162,11 +162,33 @@ public class OguLayerTests
     }
 
     [Fact]
+    public void Filter_ThrowsWhenFeaturesCollectionIsNull()
+    {
+        var layer = new OguLayer { Features = null! };
+
+        var act = () => layer.Filter(_ => true);
+
+        act.Should().Throw<LayerValidationException>()
+            .WithMessage("*features*null*");
+    }
+
+    [Fact]
     public void GetFeatureCount_ReturnsCorrectCount()
     {
         var layer = CreateValidLayer();
 
         layer.GetFeatureCount().Should().Be(1);
+    }
+
+    [Fact]
+    public void GetField_ThrowsWhenFieldsCollectionIsNull()
+    {
+        var layer = new OguLayer { Fields = null! };
+
+        var act = () => layer.GetField("Name");
+
+        act.Should().Throw<LayerValidationException>()
+            .WithMessage("*fields*null*");
     }
 
     [Fact]
@@ -292,6 +314,17 @@ public class OguLayerTests
 
         result.Should().BeFalse();
         layer.Features.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void RemoveFeature_ThrowsWhenFeaturesCollectionIsNull()
+    {
+        var layer = new OguLayer { Features = null! };
+
+        var act = () => layer.RemoveFeature(1);
+
+        act.Should().Throw<LayerValidationException>()
+            .WithMessage("*features*null*");
     }
 
     [Fact]

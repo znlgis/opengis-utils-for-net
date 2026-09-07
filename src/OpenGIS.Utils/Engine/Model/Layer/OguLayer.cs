@@ -100,6 +100,9 @@ public class OguLayer
     /// <returns>满足条件的要素列表</returns>
     public IList<OguFeature> Filter(Func<OguFeature, bool> filter)
     {
+        if (Features == null)
+            throw new LayerValidationException("Layer features collection cannot be null");
+
         return Features.Where(filter).ToList();
     }
 
@@ -170,6 +173,9 @@ public class OguLayer
     /// <returns>字段定义，如果不存在则返回 null</returns>
     public OguField? GetField(string fieldName)
     {
+        if (Fields == null)
+            throw new LayerValidationException("Layer fields collection cannot be null");
+
         return Fields.FirstOrDefault(f => f.Name == fieldName);
     }
 
@@ -207,6 +213,9 @@ public class OguLayer
     /// <returns>如果成功移除返回 true，否则返回 false</returns>
     public bool RemoveFeature(int fid)
     {
+        if (Features == null)
+            throw new LayerValidationException("Layer features collection cannot be null");
+
         var feature = Features.FirstOrDefault(f => f.Fid == fid);
         if (feature != null)
         {
