@@ -6,6 +6,7 @@ using OpenGIS.Utils.Configuration;
 using OpenGIS.Utils.Engine.Enums;
 using OpenGIS.Utils.Engine.IO;
 using OpenGIS.Utils.Engine.Model.Layer;
+using OpenGIS.Utils.Exception;
 using OSGeo.OGR;
 using OSGeo.OSR;
 using OgrDataSource = OSGeo.OGR.DataSource;
@@ -52,7 +53,7 @@ public class GdalReader : ILayerReader
             dataSource = Ogr.Open(path, 0); // 0 = read-only
 
             if (dataSource == null)
-                throw new SysException($"Failed to open data source: {path}");
+                throw new DataSourceException($"Failed to open data source: {path}");
 
             // 选择图层
             Layer ogrLayer;
@@ -60,12 +61,12 @@ public class GdalReader : ILayerReader
             {
                 ogrLayer = dataSource.GetLayerByName(layerName);
                 if (ogrLayer == null)
-                    throw new SysException($"Layer '{layerName}' not found");
+                    throw new DataSourceException($"Layer '{layerName}' not found");
             }
             else
             {
                 if (dataSource.GetLayerCount() == 0)
-                    throw new SysException("No layers found in data source");
+                    throw new DataSourceException("No layers found in data source");
                 ogrLayer = dataSource.GetLayerByIndex(0);
             }
 

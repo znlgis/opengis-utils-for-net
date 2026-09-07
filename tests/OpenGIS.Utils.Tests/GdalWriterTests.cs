@@ -2,6 +2,7 @@ using FluentAssertions;
 using OpenGIS.Utils.Engine;
 using OpenGIS.Utils.Engine.Enums;
 using OpenGIS.Utils.Engine.Model.Layer;
+using OpenGIS.Utils.Exception;
 
 namespace OpenGIS.Utils.Tests;
 
@@ -77,5 +78,26 @@ public class GdalWriterTests : IDisposable
         var act = () => new GdalWriter().Write(layer, Path.Combine(_testDir, "invalid.geojson"));
 
         act.Should().Throw<System.Exception>().WithMessage("*1 个要素失败*");
+    }
+
+    [Fact]
+    public void Write_ThrowsDataSourceExceptionWhenDriverIsUnavailable()
+    {
+        var layer = new OguLayer
+        {
+            Name = "points",
+            GeometryType = GeometryType.POINT
+        };
+        layer.AddFeature(new OguFeature { Fid = 1, Wkt = "POINT (0 0)" });
+
+        var options = new Dictionary<string, object>
+        {
+            ["driver"] = "driver-that-does-not-exist"
+        };
+
+        var act = () => new GdalWriter().Write(layer, Path.Combine(_testDir, "points.data"), options: options);
+
+        act.Should().Throw<DataSourceException>()
+            .WithMessage("*driver-that-does-not-exist*");
     }
 }

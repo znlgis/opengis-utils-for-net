@@ -8,6 +8,7 @@ using OpenGIS.Utils.Configuration;
 using OpenGIS.Utils.Engine.Enums;
 using OpenGIS.Utils.Engine.IO;
 using OpenGIS.Utils.Engine.Model.Layer;
+using OpenGIS.Utils.Exception;
 using OSGeo.OGR;
 using OSGeo.OSR;
 using OgrDataSource = OSGeo.OGR.DataSource;
@@ -50,7 +51,7 @@ public class GdalWriter : ILayerWriter
         var driver = Ogr.GetDriverByName(driverName);
 
         if (driver == null)
-            throw new SysException($"Driver '{driverName}' not available");
+            throw new DataSourceException($"Driver '{driverName}' not available");
 
         // 确保目录存在
         var directory = Path.GetDirectoryName(path);
@@ -74,7 +75,7 @@ public class GdalWriter : ILayerWriter
             dataSource = driver.CreateDataSource(path, new string[] { });
 
             if (dataSource == null)
-                throw new SysException($"Failed to create data source: {path}");
+                throw new DataSourceException($"Failed to create data source: {path}");
 
             // 创建图层
             var ogrGeomType = OgrTypeMapper.MapToOgrGeometryType(layer.GeometryType);
@@ -87,7 +88,7 @@ public class GdalWriter : ILayerWriter
                 layerOptions);
 
             if (ogrLayer == null)
-                throw new SysException("Failed to create layer");
+                throw new DataSourceException("Failed to create layer");
 
             // 创建字段
             foreach (var field in layer.Fields)

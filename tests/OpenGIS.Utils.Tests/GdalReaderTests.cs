@@ -1,5 +1,6 @@
 using FluentAssertions;
 using OpenGIS.Utils.Engine;
+using OpenGIS.Utils.Exception;
 
 namespace OpenGIS.Utils.Tests;
 
@@ -46,5 +47,16 @@ public class GdalReaderTests : IDisposable
         layer.Wkid.Should().Be(4326);
         layer.Features.Should().ContainSingle();
         layer.Features[0].Fid.Should().Be(42);
+    }
+
+    [Fact]
+    public void Read_ThrowsDataSourceExceptionWhenPathCannotBeOpened()
+    {
+        var path = Path.Combine(_testDir, "missing.geojson");
+
+        var act = () => new GdalReader().Read(path);
+
+        act.Should().Throw<DataSourceException>()
+            .WithMessage($"*{path}*");
     }
 }
