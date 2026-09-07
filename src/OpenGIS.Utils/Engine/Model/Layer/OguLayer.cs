@@ -140,6 +140,12 @@ public class OguLayer
     /// <returns>图层的完整副本，包括所有字段、要素和元数据</returns>
     public OguLayer Clone()
     {
+        if (Fields == null)
+            throw new LayerValidationException("Layer fields collection cannot be null");
+
+        if (Features == null)
+            throw new LayerValidationException("Layer features collection cannot be null");
+
         var clone = new OguLayer { Name = Name, Wkid = Wkid, GeometryType = GeometryType };
 
         foreach (var field in Fields) clone.Fields.Add(field.Clone());

@@ -219,6 +219,28 @@ public class OguLayerTests
     }
 
     [Fact]
+    public void Clone_ThrowsWhenFieldsCollectionIsNull()
+    {
+        var layer = new OguLayer { Name = "Test", Fields = null! };
+
+        var act = () => layer.Clone();
+
+        act.Should().Throw<LayerValidationException>()
+            .WithMessage("*fields*null*");
+    }
+
+    [Fact]
+    public void Clone_ThrowsWhenFeaturesCollectionIsNull()
+    {
+        var layer = new OguLayer { Name = "Test", Features = null! };
+
+        var act = () => layer.Clone();
+
+        act.Should().Throw<LayerValidationException>()
+            .WithMessage("*features*null*");
+    }
+
+    [Fact]
     public void AddField_AddsFieldSuccessfully()
     {
         var layer = new OguLayer { Name = "Test" };
