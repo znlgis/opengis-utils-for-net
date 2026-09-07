@@ -138,7 +138,16 @@ public class GdalReader : ILayerReader
 
         // 应用属性过滤
         if (!string.IsNullOrWhiteSpace(attributeFilter))
-            ogrLayer.SetAttributeFilter(attributeFilter);
+        {
+            try
+            {
+                ogrLayer.SetAttributeFilter(attributeFilter);
+            }
+            catch (SysException ex)
+            {
+                throw new FormatParseException($"Invalid attribute filter: {attributeFilter}", ex);
+            }
+        }
 
         // 应用空间过滤
         if (!string.IsNullOrWhiteSpace(spatialFilterWkt))

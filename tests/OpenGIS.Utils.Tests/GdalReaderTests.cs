@@ -78,6 +78,23 @@ public class GdalReaderTests : IDisposable
     }
 
     [Fact]
+    public void Read_ThrowsFormatParseExceptionWhenAttributeFilterIsInvalid()
+    {
+        var path = Path.Combine(_testDir, "source.geojson");
+        File.WriteAllText(path, """
+        {
+          "type": "FeatureCollection",
+          "features": []
+        }
+        """);
+
+        var act = () => new GdalReader().Read(path, attributeFilter: "NOT A SQL FILTER");
+
+        act.Should().Throw<FormatParseException>()
+            .WithMessage("*attribute filter*");
+    }
+
+    [Fact]
     public void GetLayerNames_ThrowsDataSourceExceptionWhenPathCannotBeOpened()
     {
         var path = Path.Combine(_testDir, "missing.geojson");
