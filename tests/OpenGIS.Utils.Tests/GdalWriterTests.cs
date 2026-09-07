@@ -102,6 +102,18 @@ public class GdalWriterTests : IDisposable
     }
 
     [Fact]
+    public void Write_ThrowsDataSourceExceptionWhenExistingDataSourceCannotBeDeleted()
+    {
+        var path = Path.Combine(_testDir, "blocked.geojson");
+        Directory.CreateDirectory(path);
+
+        var act = () => new GdalWriter().Write(CreatePointLayer(1, "point", "POINT (0 0)"), path);
+
+        act.Should().Throw<DataSourceException>()
+            .WithMessage("*delete*data source*");
+    }
+
+    [Fact]
     public void Append_AddsFeaturesToExistingLayer()
     {
         var path = Path.Combine(_testDir, "points.gpkg");

@@ -59,14 +59,20 @@ public class GdalWriter : ILayerWriter
 
         // 删除已存在的文件
         if (File.Exists(path) || Directory.Exists(path))
+        {
             try
             {
-                driver.DeleteDataSource(path);
+                if (driver.DeleteDataSource(path) != 0)
+                    throw new DataSourceException($"Failed to delete existing data source: {path}");
             }
             catch (SysException ex)
             {
-                Logger.LogWarning(ex, "删除已存在的数据源失败: {Path}", path);
+                if (ex is DataSourceException)
+                    throw;
+
+                throw new DataSourceException($"Failed to delete existing data source: {path}", ex);
             }
+        }
 
         OgrDataSource? dataSource = null;
         try
