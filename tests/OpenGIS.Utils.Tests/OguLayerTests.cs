@@ -97,6 +97,19 @@ public class OguLayerTests
     }
 
     [Fact]
+    public void Validate_ThrowsWhenFeatureAttributesAreNull()
+    {
+        var layer = new OguLayer { Name = "Test" };
+        layer.Fields.Add(new OguField { Name = "F1" });
+        layer.Features.Add(new OguFeature { Attributes = null! });
+
+        var act = () => layer.Validate();
+
+        act.Should().Throw<LayerValidationException>()
+            .WithMessage("*attributes*null*");
+    }
+
+    [Fact]
     public void Validate_ThrowsWhenFeaturesCollectionIsNull()
     {
         var layer = new OguLayer { Name = "Test", Features = null! };

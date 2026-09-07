@@ -83,10 +83,13 @@ public class OguLayer
             if (feature == null)
                 throw new LayerValidationException("Layer contains a feature that is null");
 
-        foreach (var fieldName in feature.Attributes.Keys)
-            if (!fieldNameSet.Contains(fieldName))
-                throw new LayerValidationException(
-                    $"Feature contains attribute '{fieldName}' that is not defined in Fields");
+            if (feature.Attributes == null)
+                throw new LayerValidationException("Layer feature attributes cannot be null");
+
+            foreach (var fieldName in feature.Attributes.Keys)
+                if (!fieldNameSet.Contains(fieldName))
+                    throw new LayerValidationException(
+                        $"Feature contains attribute '{fieldName}' that is not defined in Fields");
         }
     }
 
