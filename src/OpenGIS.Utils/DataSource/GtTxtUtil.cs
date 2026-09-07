@@ -70,19 +70,19 @@ public static class GtTxtUtil
 
             // 解析坐标行
             var coordinate = ParseTxtLine(line);
-            if (coordinate != null)
-            {
-                var feature = new OguFeature { Fid = fid++, Wkt = coordinate.ToWkt() };
+            if (coordinate == null)
+                throw new FormatParseException($"Invalid TXT coordinate line: {line}");
 
-                feature.SetValue("点号", coordinate.PointNumber ?? string.Empty);
-                feature.SetValue("圈号", coordinate.RingNumber ?? string.Empty);
-                feature.SetValue("X", coordinate.X);
-                feature.SetValue("Y", coordinate.Y);
-                feature.SetValue("Z", coordinate.Z ?? 0.0);
-                feature.SetValue("备注", coordinate.Remark ?? string.Empty);
+            var feature = new OguFeature { Fid = fid++, Wkt = coordinate.ToWkt() };
 
-                layer.AddFeature(feature);
-            }
+            feature.SetValue("点号", coordinate.PointNumber ?? string.Empty);
+            feature.SetValue("圈号", coordinate.RingNumber ?? string.Empty);
+            feature.SetValue("X", coordinate.X);
+            feature.SetValue("Y", coordinate.Y);
+            feature.SetValue("Z", coordinate.Z ?? 0.0);
+            feature.SetValue("备注", coordinate.Remark ?? string.Empty);
+
+            layer.AddFeature(feature);
         }
 
         layer.Metadata = metadata;

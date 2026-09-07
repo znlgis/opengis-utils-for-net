@@ -95,6 +95,30 @@ public class GtTxtUtilTests
     }
 
     [Fact]
+    public void LoadTxt_ThrowsFormatParseExceptionForInvalidCoordinateLine()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"GtTxtUtilTests_{Guid.NewGuid():N}.txt");
+        File.WriteAllLines(path, new[]
+        {
+            "J1 1 100.0 200.0",
+            "J2 1 invalid 300.0"
+        });
+
+        try
+        {
+            var act = () => GtTxtUtil.LoadTxt(path);
+
+            act.Should().Throw<FormatParseException>()
+                .WithMessage("*line*J2*invalid*");
+        }
+        finally
+        {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void FormatTxtLine_RoundTripsWithParse()
     {
         var line = GtTxtUtil.ParseTxtLine("J1 2 500000.5 4400000.25 3.5 角点");
