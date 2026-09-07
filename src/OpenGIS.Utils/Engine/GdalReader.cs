@@ -239,7 +239,17 @@ public class GdalReader : ILayerReader
         {
             feature.GetFieldAsDateTime(fieldIndex, out int year, out int month, out int day,
                 out int hour, out int minute, out float second, out int tzFlag);
-            return new DateTime(year, month, day, hour, minute, (int)second);
+            var wholeSeconds = (int)Math.Truncate(second);
+            var fractionalTicks = (long)Math.Round(
+                (second - wholeSeconds) * TimeSpan.TicksPerSecond,
+                MidpointRounding.AwayFromZero);
+            if (fractionalTicks == TimeSpan.TicksPerSecond)
+            {
+                wholeSeconds++;
+                fractionalTicks = 0;
+            }
+
+            return new DateTime(year, month, day, hour, minute, wholeSeconds).AddTicks(fractionalTicks);
         }
         catch (SysException ex)
         {

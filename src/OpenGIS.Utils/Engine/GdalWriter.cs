@@ -348,7 +348,10 @@ public class GdalWriter : ILayerWriter
             case FieldDataType.DATE:
             case FieldDataType.DATETIME:
                 if (value is DateTime dt)
-                    feature.SetField(fieldIndex, dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second, 0);
+                {
+                    var seconds = dt.Second + (float)dt.Millisecond / 1000;
+                    feature.SetField(fieldIndex, dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, seconds, 0);
+                }
                 break;
             default:
                 feature.SetField(fieldIndex, value.ToString());

@@ -118,6 +118,30 @@ public class GdalWriterTests : IDisposable
         result.Features.Should().Contain(feature => feature.Fid == 2);
     }
 
+    [Fact]
+    public void Write_PreservesDateTimeFractionalSeconds()
+    {
+        var layer = new OguLayer
+        {
+            Name = "events",
+            GeometryType = GeometryType.POINT,
+            Wkid = 4326
+        };
+        layer.AddField(new OguField { Name = "occurred", DataType = FieldDataType.DATETIME });
+        var expected = new DateTime(2024, 1, 15, 10, 30, 15, 750);
+        var feature = new OguFeature { Fid = 1, Wkt = "POINT (0 0)" };
+        feature.SetValue("occurred", expected);
+        layer.AddFeature(feature);
+
+        var path = Path.Combine(_testDir, "events.gpkg");
+        new GdalWriter().Write(layer, path);
+
+        var result = new GdalReader().Read(path);
+        result.Features.Should().ContainSingle();
+        result.Features[0].GetValue("occurred").Should().BeOfType<DateTime>()
+            .Which.Should().Be(expected);
+    }
+
     private static OguLayer CreatePointLayer(int fid, string name, string wkt)
     {
         var layer = new OguLayer
