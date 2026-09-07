@@ -100,4 +100,36 @@ public class GdalWriterTests : IDisposable
         act.Should().Throw<DataSourceException>()
             .WithMessage("*driver-that-does-not-exist*");
     }
+
+    [Fact]
+    public void Append_AddsFeaturesToExistingLayer()
+    {
+        var path = Path.Combine(_testDir, "points.gpkg");
+        var writer = new GdalWriter();
+        var initialLayer = CreatePointLayer(1, "first", "POINT (0 0)");
+        writer.Write(initialLayer, path);
+
+        var appendedLayer = CreatePointLayer(2, "second", "POINT (1 1)");
+        writer.Append(appendedLayer, path);
+
+        var result = new GdalReader().Read(path);
+        result.Features.Should().HaveCount(2);
+        result.Features.Should().Contain(feature => feature.Fid == 1);
+        result.Features.Should().Contain(feature => feature.Fid == 2);
+    }
+
+    private static OguLayer CreatePointLayer(int fid, string name, string wkt)
+    {
+        var layer = new OguLayer
+        {
+            Name = "points",
+            GeometryType = GeometryType.POINT,
+            Wkid = 4326
+        };
+        layer.AddField(new OguField { Name = "name", DataType = FieldDataType.STRING });
+        var feature = new OguFeature { Fid = fid, Wkt = wkt };
+        feature.SetValue("name", name);
+        layer.AddFeature(feature);
+        return layer;
+    }
 }

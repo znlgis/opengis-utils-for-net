@@ -193,12 +193,89 @@ public class GdalWriter : ILayerWriter
     /// <param name="path">输出路径</param>
     /// <param name="layerName">图层名称</param>
     /// <param name="options">附加选项</param>
-    /// <exception cref="NotImplementedException">此功能尚未实现</exception>
+    /// <exception cref="ArgumentNullException">当图层为 null 时抛出</exception>
+    /// <exception cref="ArgumentException">当路径为空时抛出</exception>
+    /// <exception cref="DataSourceException">当数据源或图层无法打开时抛出</exception>
     public void Append(OguLayer layer, string path, string? layerName = null,
         Dictionary<string, object>? options = null)
     {
-        // TODO: Implement append functionality using GDAL
-        throw new NotImplementedException("GdalWriter.Append is not yet implemented");
+        if (layer == null)
+            throw new ArgumentNullException(nameof(layer));
+        if (string.IsNullOrWhiteSpace(path))
+            throw new ArgumentException("Path cannot be null or empty", nameof(path));
+
+        using var dataSource = Ogr.Open(path, 1);
+        if (dataSource == null)
+            throw new DataSourceException($"Failed to open data source for appending: {path}");
+
+        var targetLayerName = layerName ?? layer.Name;
+        var ogrLayer = string.IsNullOrWhiteSpace(targetLayerName)
+            ? dataSource.GetLayerByIndex(0)
+            : dataSource.GetLayerByName(targetLayerName);
+        if (ogrLayer == null)
+            throw new DataSourceException($"Layer '{targetLayerName ?? ""}' not found");
+
+        var layerDefinition = ogrLayer.GetLayerDefn();
+        var fieldIndexMap = new Dictionary<string, int>(layer.Fields.Count);
+        foreach (var field in layer.Fields)
+        {
+            var index = layerDefinition.GetFieldIndex(field.Name);
+            if (index < 0)
+                throw new DataSourceException($"Field '{field.Name}' not found in target layer");
+            fieldIndexMap[field.Name] = index;
+        }
+
+        var failedCount = 0;
+        foreach (var oguFeature in layer.Features)
+        {
+            if (string.IsNullOrWhiteSpace(oguFeature.Wkt))
+            {
+                failedCount++;
+                Logger.LogWarning("跳过空几何要素 (Fid={Fid})", oguFeature.Fid);
+                continue;
+            }
+
+            Feature? ogrFeature = null;
+            OSGeo.OGR.Geometry? geometry = null;
+            try
+            {
+                ogrFeature = new Feature(layerDefinition);
+                if (oguFeature.Fid != 0 && ogrFeature.SetFID(oguFeature.Fid) != 0)
+                    throw new SysException($"设置要素 FID 失败 (Fid={oguFeature.Fid})");
+
+                geometry = OSGeo.OGR.Geometry.CreateFromWkt(oguFeature.Wkt);
+                if (geometry == null)
+                    throw new SysException($"无法解析要素几何 (Fid={oguFeature.Fid})");
+                if (ogrFeature.SetGeometry(geometry) != 0)
+                    throw new SysException($"设置要素几何失败 (Fid={oguFeature.Fid})");
+
+                foreach (var field in layer.Fields)
+                {
+                    var value = oguFeature.GetValue(field.Name);
+                    SetFieldValue(ogrFeature, fieldIndexMap[field.Name], value, field.DataType);
+                }
+
+                if (ogrLayer.CreateFeature(ogrFeature) != 0)
+                {
+                    failedCount++;
+                    Logger.LogWarning("追加要素失败 (Fid={Fid})", oguFeature.Fid);
+                }
+            }
+            catch (SysException ex)
+            {
+                failedCount++;
+                Logger.LogWarning(ex, "追加要素时出错 (Fid={Fid})", oguFeature.Fid);
+            }
+            finally
+            {
+                geometry?.Dispose();
+                ogrFeature?.Dispose();
+            }
+        }
+
+        dataSource.SyncToDisk();
+        if (failedCount > 0)
+            throw new SysException($"追加到图层时 {failedCount} 个要素失败: {path}");
     }
 
     private string InferDriverName(string path, Dictionary<string, object>? options)
