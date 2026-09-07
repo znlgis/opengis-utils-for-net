@@ -44,10 +44,24 @@ public static class CrsUtil
             throw new ArgumentException("Invalid WKT", nameof(wkt));
 
         using var sourceSrs = new SpatialReference(null);
-        sourceSrs.ImportFromEPSG(sourceWkid);
+        try
+        {
+            sourceSrs.ImportFromEPSG(sourceWkid);
+        }
+        catch (SysException ex)
+        {
+            throw new ArgumentException($"Invalid source WKID: {sourceWkid}", nameof(sourceWkid), ex);
+        }
 
         using var targetSrs = new SpatialReference(null);
-        targetSrs.ImportFromEPSG(targetWkid);
+        try
+        {
+            targetSrs.ImportFromEPSG(targetWkid);
+        }
+        catch (SysException ex)
+        {
+            throw new ArgumentException($"Invalid target WKID: {targetWkid}", nameof(targetWkid), ex);
+        }
 
         using var transform = new CoordinateTransformation(sourceSrs, targetSrs);
 

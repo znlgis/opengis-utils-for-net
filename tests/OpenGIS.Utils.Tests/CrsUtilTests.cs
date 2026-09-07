@@ -113,4 +113,22 @@ public class CrsUtilTests
     {
         CrsUtil.IsProjectedCRS(wkid).Should().Be(expected);
     }
+
+    [Fact]
+    public void Transform_ThrowsForInvalidSourceWkid()
+    {
+        var act = () => CrsUtil.Transform("POINT (116 40)", 0, 4326);
+
+        act.Should().Throw<ArgumentException>()
+            .WithMessage("*source*WKID*");
+    }
+
+    [Fact]
+    public void Transform_ThrowsForInvalidTargetWkid()
+    {
+        var act = () => CrsUtil.Transform("POINT (116 40)", 4326, 0);
+
+        act.Should().Throw<ArgumentException>()
+            .WithMessage("*target*WKID*");
+    }
 }
