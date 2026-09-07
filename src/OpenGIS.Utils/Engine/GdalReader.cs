@@ -7,6 +7,7 @@ using OpenGIS.Utils.Engine.Enums;
 using OpenGIS.Utils.Engine.IO;
 using OpenGIS.Utils.Engine.Model.Layer;
 using OSGeo.OGR;
+using OSGeo.OSR;
 using OgrDataSource = OSGeo.OGR.DataSource;
 using SysException = System.Exception;
 
@@ -107,6 +108,11 @@ public class GdalReader : ILayerReader
     {
         var layer = new OguLayer { Name = ogrLayer.GetName() };
 
+        using (var spatialReference = ogrLayer.GetSpatialRef())
+        {
+            layer.Wkid = GetWkid(spatialReference);
+        }
+
         // 读取字段定义
         var layerDefn = ogrLayer.GetLayerDefn();
         var fieldCount = layerDefn.GetFieldCount();
@@ -154,14 +160,19 @@ public class GdalReader : ILayerReader
         }
 
         // 读取要素
-        int fid = 1;
         ogrLayer.ResetReading();
 
         Feature? ogrFeature;
         while ((ogrFeature = ogrLayer.GetNextFeature()) != null)
             using (ogrFeature)
             {
-                var feature = new OguFeature { Fid = fid++ };
+                var sourceFid = ogrFeature.GetFID();
+                var feature = new OguFeature
+                {
+                    Fid = sourceFid >= int.MinValue && sourceFid <= int.MaxValue
+                        ? (int)sourceFid
+                        : throw new SysException($"Source FID is outside the supported Int32 range: {sourceFid}")
+                };
 
                 // 读取几何
                 var geometry = ogrFeature.GetGeometryRef();
@@ -185,6 +196,15 @@ public class GdalReader : ILayerReader
             }
 
         return layer;
+    }
+
+    private static int? GetWkid(SpatialReference? spatialReference)
+    {
+        if (spatialReference == null)
+            return null;
+
+        var authorityCode = spatialReference.GetAuthorityCode(null);
+        return int.TryParse(authorityCode, out var wkid) ? wkid : null;
     }
 
     private static void ApplyEncodingOption(Dictionary<string, object>? options)

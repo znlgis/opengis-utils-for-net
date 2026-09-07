@@ -8,6 +8,7 @@ using OpenGIS.Utils.Engine.Enums;
 using OpenGIS.Utils.Engine.IO;
 using OpenGIS.Utils.Engine.Model.Layer;
 using OSGeo.OGR;
+using OSGeo.OSR;
 using OgrDataSource = OSGeo.OGR.DataSource;
 using SysException = System.Exception;
 
@@ -77,9 +78,10 @@ public class GdalWriter : ILayerWriter
             // 创建图层
             var ogrGeomType = OgrTypeMapper.MapToOgrGeometryType(layer.GeometryType);
             var layerOptions = BuildLayerOptions(options);
+            using var spatialReference = CreateSpatialReference(layer.Wkid);
             var ogrLayer = dataSource.CreateLayer(
                 layerName ?? layer.Name ?? "layer",
-                null,
+                spatialReference,
                 ogrGeomType,
                 layerOptions);
 
@@ -90,7 +92,8 @@ public class GdalWriter : ILayerWriter
             foreach (var field in layer.Fields)
             {
                 using var fieldDefn = CreateOgrFieldDefn(field);
-                ogrLayer.CreateField(fieldDefn, 1);
+                if (ogrLayer.CreateField(fieldDefn, 1) != 0)
+                    throw new SysException($"Failed to create field '{field.Name}'");
             }
 
             // 预计算字段索引映射，避免在要素循环内重复调用 GetFieldIndex
@@ -106,7 +109,11 @@ public class GdalWriter : ILayerWriter
             foreach (var oguFeature in layer.Features)
             {
                 if (string.IsNullOrWhiteSpace(oguFeature.Wkt))
+                {
+                    failedCount++;
+                    Logger.LogWarning("跳过空几何要素 (Fid={Fid})", oguFeature.Fid);
                     continue;
+                }
 
                 Feature? ogrFeature = null;
                 OSGeo.OGR.Geometry? geometry = null;
@@ -116,9 +123,16 @@ public class GdalWriter : ILayerWriter
                     // 创建要素
                     ogrFeature = new Feature(ogrLayer.GetLayerDefn());
 
+                    if (oguFeature.Fid != 0 && ogrFeature.SetFID(oguFeature.Fid) != 0)
+                        throw new SysException($"设置要素 FID 失败 (Fid={oguFeature.Fid})");
+
                     // 设置几何
                     geometry = OSGeo.OGR.Geometry.CreateFromWkt(oguFeature.Wkt);
-                    if (geometry != null) ogrFeature.SetGeometry(geometry);
+                    if (geometry == null)
+                        throw new SysException($"无法解析要素几何 (Fid={oguFeature.Fid})");
+
+                    if (ogrFeature.SetGeometry(geometry) != 0)
+                        throw new SysException($"设置要素几何失败 (Fid={oguFeature.Fid})");
 
                     // 设置属性
                     foreach (var field in layer.Fields)
@@ -215,6 +229,21 @@ public class GdalWriter : ILayerWriter
         if (field.Precision.HasValue && field.Precision.Value > 0) fieldDefn.SetPrecision(field.Precision.Value);
 
         return fieldDefn;
+    }
+
+    private static SpatialReference? CreateSpatialReference(int? wkid)
+    {
+        if (!wkid.HasValue)
+            return null;
+
+        var spatialReference = new SpatialReference(null);
+        if (spatialReference.ImportFromEPSG(wkid.Value) != 0)
+        {
+            spatialReference.Dispose();
+            throw new SysException($"Failed to import spatial reference EPSG:{wkid.Value}");
+        }
+
+        return spatialReference;
     }
 
     private void SetFieldValue(Feature feature, int fieldIndex, object? value, FieldDataType dataType)
