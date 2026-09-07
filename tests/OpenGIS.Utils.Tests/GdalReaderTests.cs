@@ -1,6 +1,9 @@
 using FluentAssertions;
 using OpenGIS.Utils.Engine;
+using OpenGIS.Utils.Engine.Enums;
+using OpenGIS.Utils.Engine.Model.Layer;
 using OpenGIS.Utils.Exception;
+using System.Text;
 
 namespace OpenGIS.Utils.Tests;
 
@@ -10,6 +13,7 @@ public class GdalReaderTests : IDisposable
 
     public GdalReaderTests()
     {
+        Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         _testDir = Path.Combine(Path.GetTempPath(), "GdalReaderTests_" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_testDir);
     }
@@ -103,5 +107,45 @@ public class GdalReaderTests : IDisposable
 
         act.Should().Throw<DataSourceException>()
             .WithMessage($"*{path}*");
+    }
+
+    [Fact]
+    public async Task Read_HandlesConcurrentEncodingOptions()
+    {
+        var utf8Path = CreateEncodedShapefile("utf8", Encoding.UTF8, "UTF8 value");
+        var gbkPath = CreateEncodedShapefile("gbk", Encoding.GetEncoding("GBK"), "GBK value");
+
+        var reads = Enumerable.Range(0, 20)
+            .SelectMany(_ => new[]
+            {
+                ReadName(utf8Path, Encoding.UTF8, "UTF8 value"),
+                ReadName(gbkPath, Encoding.GetEncoding("GBK"), "GBK value")
+            });
+
+        var results = await Task.WhenAll(reads);
+
+        results.Should().OnlyContain(result => result.IsCorrect);
+    }
+
+    private string CreateEncodedShapefile(string name, Encoding encoding, string value)
+    {
+        var path = Path.Combine(_testDir, name + ".shp");
+        var layer = new OguLayer { Name = name, GeometryType = GeometryType.POINT };
+        layer.AddField(new OguField { Name = "name", DataType = FieldDataType.STRING, Length = 50 });
+        var feature = new OguFeature { Fid = 1, Wkt = "POINT (0 0)" };
+        feature.SetValue("name", value);
+        layer.AddFeature(feature);
+
+        new GdalWriter().Write(layer, path, options: new Dictionary<string, object> { ["encoding"] = encoding });
+        return path;
+    }
+
+    private static async Task<(string Value, bool IsCorrect)> ReadName(
+        string path, Encoding encoding, string expected)
+    {
+        await Task.Yield();
+        var layer = new GdalReader().Read(path, options: new Dictionary<string, object> { ["encoding"] = encoding });
+        var value = layer.Features.Single().GetValue("name")?.ToString() ?? string.Empty;
+        return (value, value == expected);
     }
 }

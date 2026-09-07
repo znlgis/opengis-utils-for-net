@@ -20,6 +20,7 @@ namespace OpenGIS.Utils.Engine;
 public class GdalReader : ILayerReader
 {
     private static readonly ILogger Logger = OguLogging.CreateLogger<GdalReader>();
+    private static readonly object GlobalConfigLock = new();
 
     static GdalReader()
     {
@@ -40,6 +41,15 @@ public class GdalReader : ILayerReader
     /// <exception cref="SysException">当无法打开数据源或找不到图层时抛出</exception>
     public OguLayer Read(string path, string? layerName = null, string? attributeFilter = null,
         string? spatialFilterWkt = null, Dictionary<string, object>? options = null)
+    {
+        lock (GlobalConfigLock)
+        {
+            return ReadCore(path, layerName, attributeFilter, spatialFilterWkt, options);
+        }
+    }
+
+    private OguLayer ReadCore(string path, string? layerName, string? attributeFilter,
+        string? spatialFilterWkt, Dictionary<string, object>? options)
     {
         if (string.IsNullOrWhiteSpace(path))
             throw new ArgumentException("Path cannot be null or empty", nameof(path));
