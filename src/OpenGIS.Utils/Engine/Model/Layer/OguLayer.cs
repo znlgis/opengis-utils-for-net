@@ -63,6 +63,9 @@ public class OguLayer
         if (Fields == null || Fields.Count == 0)
             throw new LayerValidationException("Layer must have at least one field");
 
+        if (Features == null)
+            throw new LayerValidationException("Layer features collection cannot be null");
+
         // 验证字段名称唯一性 - use HashSet for better performance
         var fieldNameSet = new HashSet<string>();
         foreach (var field in Fields)

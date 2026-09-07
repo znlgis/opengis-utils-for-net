@@ -131,6 +131,22 @@ public class GdalWriterTests : IDisposable
     }
 
     [Fact]
+    public void Append_MapsFieldsWithoutCaseSensitivity()
+    {
+        var path = Path.Combine(_testDir, "case-insensitive.gpkg");
+        var writer = new GdalWriter();
+        writer.Write(CreatePointLayerWithField(1, "first", "POINT (0 0)", "Name"), path);
+
+        var appendedLayer = CreatePointLayerWithField(2, "second", "POINT (1 1)", "name");
+        var act = () => writer.Append(appendedLayer, path);
+
+        act.Should().NotThrow();
+        var result = new GdalReader().Read(path);
+        result.Features.Should().HaveCount(2);
+        result.Features[1].GetValue("Name").Should().Be("second");
+    }
+
+    [Fact]
     public void Write_PreservesDateTimeFractionalSeconds()
     {
         var layer = new OguLayer
@@ -156,13 +172,18 @@ public class GdalWriterTests : IDisposable
 
     private static OguLayer CreatePointLayer(int fid, string name, string wkt)
     {
+        return CreatePointLayerWithField(fid, name, wkt, "name");
+    }
+
+    private static OguLayer CreatePointLayerWithField(int fid, string name, string wkt, string fieldName)
+    {
         var layer = new OguLayer
         {
             Name = "points",
             GeometryType = GeometryType.POINT,
             Wkid = 4326
         };
-        layer.AddField(new OguField { Name = "name", DataType = FieldDataType.STRING });
+        layer.AddField(new OguField { Name = fieldName, DataType = FieldDataType.STRING });
         var feature = new OguFeature { Fid = fid, Wkt = wkt };
         feature.SetValue("name", name);
         layer.AddFeature(feature);
