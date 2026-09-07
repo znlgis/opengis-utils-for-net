@@ -288,6 +288,9 @@ public static class GeometryUtil
         if (geomList.Count == 0)
             throw new ArgumentException("Geometry list cannot be empty", nameof(geometries));
 
+        if (geomList.Any(geometry => geometry == null))
+            throw new ArgumentException("Geometry list cannot contain null geometry", nameof(geometries));
+
         if (geomList.Count == 1)
             return geomList[0];
 
