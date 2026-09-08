@@ -246,9 +246,6 @@ public class GdalWriter : ILayerWriter
 
         if (driverName is "GeoJSON" or "GeoJSONSeq")
         {
-            // GeoJSON 默认不输出 null 字段，导致"值全为空的字段"在往返后丢失；
-            // 需配合 SetFieldNull 写出 "FIELD": null 以保留字段定义
-            layerOptions.Add("WRITE_NULL_FIELDS=YES");
             layerOptions.Add("COORDINATE_PRECISION=15");
         }
 
