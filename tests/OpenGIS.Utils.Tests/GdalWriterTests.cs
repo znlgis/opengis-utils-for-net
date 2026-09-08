@@ -320,6 +320,20 @@ public class GdalWriterTests : IDisposable
         result.Features[0].Wkt.Should().Contain("30");
     }
 
+    [Fact]
+    public void Write_RoutesPostgisConnectionStringToPostgresDriver()
+    {
+        // 回归：PostGIS 连接串没有文件扩展名，驱动推断曾回退到 ESRI Shapefile，
+        // GDAL 于是尝试创建名为 "PG:host=..." 的目录并报 shapefile datastore 错误
+        var layer = CreatePointLayer(1, "pg", "POINT (10 20)");
+        const string conn = "PG:host=127.0.0.1 port=1 dbname=postgres user=postgres password=postgres";
+
+        var act = () => new GdalWriter().Write(layer, conn, "ogu_test_routing");
+
+        act.Should().Throw<System.Exception>()
+            .Where(e => !e.Message.Contains("shapefile datastore"));
+    }
+
     private static OguLayer CreatePointLayer(int fid, string name, string wkt)
     {
         return CreatePointLayerWithField(fid, name, wkt, "name");

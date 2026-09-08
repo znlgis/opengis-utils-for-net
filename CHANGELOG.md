@@ -12,11 +12,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   integration checks that auto-discover Shapefiles under a caller-supplied
   directory (recursive `.shp`/`.dbf` pairing, expected feature counts parsed
   from DBF headers and geometry types from SHP headers independently of GDAL)
-  across six dimensions (read, 3D geometry, CRS, format conversion, geometry
-  operations, write round trip); no dataset names, paths, or coordinate-range
-  assumptions are built in. `RealDataIntegrationTests` reuses the checks in
-  xunit via the `OGU_REAL_DATA_DIR` environment variable (auto-skipped when
-  unset).
+  across seven dimensions (read, 3D geometry, CRS, format conversion, geometry
+  operations, write round trip, PostGIS round trip); no dataset names, paths, or
+  coordinate-range assumptions are built in. `RealDataIntegrationTests` reuses
+  the checks in xunit via the `OGU_REAL_DATA_DIR` environment variable, and
+  `RealDataPostgisTests` adds the PostGIS dimension via `OGU_POSTGIS_CONN`
+  (both auto-skipped when unset). Every table the PostGIS dimension creates
+  carries the `ogu_test_` prefix and is dropped in a `finally` block.
+- `CrsUtil`: GDAL/PROJ-backed CRS metadata and explicit transform paths —
+  `IsGeographicCRS`, `GetCrsInfo` (returning `CrsInfo`), `TransformThrough`
+  (WKT and `OgrGeometry` overloads) for caller-declared intermediate systems,
+  and `GetTransformRecommendation` (returning `TransformRecommendation`), which
+  flags HK1980 Grid → CGCS2000 (2326 → 4490) as requiring an explicit 4326
+  intermediate.
+- `GdalWriter` accepts an `overwrite` option (bool, `YES`, `true`, or `1`) that
+  adds the `OVERWRITE=YES` layer creation option; writes remain non-destructive
+  by default.
 - `OguLogging`: configurable library-wide logging facade based on the
   `Microsoft.Extensions.Logging.Abstractions` dependency. Defaults to no output
   (`NullLoggerFactory`); set `OguLogging.LoggerFactory` at startup to receive
@@ -50,6 +61,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - System.Buffers 4.6.1
 
 ### Changed
+- `PostgisUtil.CreateSpatialIndex` defaults the geometry column to
+  `wkb_geometry` (the column name the GDAL PostgreSQL driver actually creates),
+  accepts `null` to look the column up in `geometry_columns`, and issues
+  `CREATE INDEX IF NOT EXISTS` so repeated calls are idempotent. The identifier
+  allow-list is unchanged.
+- `PostgisUtil.TableExists` now throws `DataSourceException` when the data
+  source cannot be opened and returns `false` only for a reachable database
+  that lacks the table; the previous unconditional `false` made an unreachable
+  server indistinguishable from a missing table. Documented connection strings
+  are unquoted (`PG:host=... port=... dbname=... user=... password=...`)
+  because GDAL parses a surrounding quote as part of the first option name.
+- `CrsUtil.IsProjectedCRS` and `CrsUtil.GetTolerance` consult the GDAL/PROJ
+  database instead of hardcoded CGCS2000/WGS84 UTM WKID ranges, so regional
+  systems such as HK1980 Grid (2326), TWD97 (3826), Web Mercator (3857), and
+  UTM zone 50N (32650) are recognized; invalid WKIDs keep the previous results
+  (`false` and the default tolerance). The 3°/6° zone helpers stay
+  China-specific and are documented as such.
 - `GdalWriter` now resolves the layer geometry type from the first parseable
   feature WKT, upgrading PointZ/PolylineZ layers to their 25D OGR type so GPKG
   no longer reports a 2D-declared layer containing Z geometries.
@@ -75,6 +103,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   extents and the valid empty-Shapefile result.
 
 ### Fixed
+- `GdalWriter.InferDriverName` recognizes `PG:`-prefixed connection strings and
+  selects the PostgreSQL driver. Without a file extension the inference fell
+  back to `ESRI Shapefile`, so
+  `OguLayerUtil.WriteLayer(DataFormatType.POSTGIS, ...)` failed with
+  `Failed to create directory PG:... for shapefile datastore`.
+- `CrsUtil.Transform` validates the WKID even when source and target are equal,
+  so an invalid code such as 0 no longer returns the input WKT unchanged.
 - `GdalReader` returns null for OGR null fields (e.g. blank Shapefile `D`
   date fields) instead of throwing `FormatParseException` on the first empty
   date, which previously made layers with empty date fields unreadable.

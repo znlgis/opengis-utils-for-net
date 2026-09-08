@@ -245,7 +245,20 @@ public class GdalWriter : ILayerWriter
             layerOptions.Add("COORDINATE_PRECISION=15");
         }
 
+        if (options != null && options.TryGetValue("overwrite", out var overwriteObj) && IsTrue(overwriteObj))
+            // 数据库驱动不会像文件驱动那样先删除已有目标，重复写入必须显式声明覆盖
+            layerOptions.Add("OVERWRITE=YES");
+
         return layerOptions.ToArray();
+    }
+
+    private static bool IsTrue(object? value)
+    {
+        if (value is bool flag)
+            return flag;
+
+        var text = value?.ToString();
+        return text is "YES" or "yes" or "TRUE" or "true" or "1";
     }
 
     /// <summary>
@@ -382,6 +395,10 @@ public class GdalWriter : ILayerWriter
         // 从选项中获取驱动名称
         if (options != null && options.TryGetValue("driver", out var driverObj))
             return driverObj.ToString() ?? "ESRI Shapefile";
+
+        // 数据库连接串没有文件扩展名，必须先按前缀识别，否则会落到默认的 Shapefile 驱动
+        if (path.StartsWith("PG:", StringComparison.OrdinalIgnoreCase))
+            return "PostgreSQL";
 
         // 根据扩展名推断
         var extension = Path.GetExtension(path).ToLowerInvariant();

@@ -16,7 +16,7 @@ This project is a complete port of [opengis-utils-for-java](https://github.com/z
 
 - 🎯 **Unified Layer Model**: Simple and consistent `OguLayer`, `OguFeature`, and `OguField` abstractions that hide underlying GIS library differences
 - 🔄 **Format Conversion**: Seamless conversion between Shapefile, GeoJSON, FileGDB, PostGIS, GeoPackage, KML, DXF, and TXT formats
-- 🌐 **Coordinate System Support**: Comprehensive CRS transformation using GDAL/OGR with built-in CGCS2000 support
+- 🌐 **Coordinate System Support**: CRS metadata and transformations backed by the GDAL/PROJ database, covering EPSG coordinate systems worldwide while retaining CGCS2000 helpers
 - 📐 **Geometry Processing**: Rich set of spatial operations including buffer, intersection, union, topology validation, and more
 - 🔧 **GDAL-Based Architecture**: All operations powered by GDAL/OGR for maximum compatibility and performance
 - 📦 **Cross-Platform**: Runs on Windows, Linux, and macOS via .NET Standard 2.0
@@ -143,7 +143,9 @@ var filtered = OguLayerUtil.ReadLayer(
 
 `GdalWriter.Append` 向已有数据源追加要素，不会删除原数据源；输入字段必须能够映射到目标图层。`Write` 会重新创建已存在的数据源。两种操作都会在处理完输入后，以 `DataSourceException` 汇总报告失败要素；目标驱动支持时会尽量保留非零 FID。
 
-PostGIS 操作要求连接字符串能够被 GDAL PostgreSQL 驱动识别。`PostgisUtil.CreateSpatialIndex` 通过 OGR 创建 GIST 索引，数据库用户必须拥有创建索引的权限，表名和几何列名仅允许字母、数字和下划线。
+PostGIS 连接串必须能被 GDAL PostgreSQL 驱动识别，且整体不能加引号：写 `PG:host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres`；写成 `PG:"host=..."` 会让 GDAL 把引号当成参数名的一部分而连接失败。`OguLayerUtil.WriteLayer(DataFormatType.POSTGIS, ...)` 与 `PostgisUtil.WritePostGIS` 按 `PG:` 前缀选择 PostgreSQL 驱动。`PostgisUtil.TableExists` 在数据源打不开时抛 `DataSourceException`，只有连接成功且库中不含该表才返回 `false`。
+
+`PostgisUtil.CreateSpatialIndex` 通过 OGR 创建 GIST 索引，几何列名默认为 GDAL 建表时使用的 `wkb_geometry`，传 `null` 时从 `geometry_columns` 自动探测实际列名；DDL 使用 `CREATE INDEX IF NOT EXISTS`，重复调用不会失败。数据库用户必须拥有创建索引的权限，表名和几何列名仅允许字母、数字和下划线。默认写入不覆盖已存在的同名表；需要覆盖时在 options 中传 `overwrite = true`（等价于图层创建选项 `OVERWRITE=YES`），文件驱动同样接受该选项。
 
 `GdalReader` supports an optional `options["encoding"]` value for encoded
 Shapefile attributes. Attribute filters use the driver's expression syntax;
@@ -158,9 +160,24 @@ data source, while both methods report failed features through
 preserved when the target driver accepts them.
 
 For PostGIS, the connection string must be understood by the GDAL PostgreSQL
-driver. `PostgisUtil.CreateSpatialIndex` creates a GIST index through OGR;
-the database user must have permission to create indexes, and table/geometry
-column names are restricted to letters, digits, and underscores.
+driver and must not be quoted: write
+`PG:host=127.0.0.1 port=5432 dbname=postgres user=postgres password=postgres`.
+A quoted form such as `PG:"host=..."` makes GDAL treat the quote as part of the
+option name and fail to connect. `OguLayerUtil.WriteLayer(DataFormatType.POSTGIS, ...)`
+and `PostgisUtil.WritePostGIS` select the PostgreSQL driver from the `PG:`
+prefix. `PostgisUtil.TableExists` throws `DataSourceException` when the data
+source cannot be opened and returns `false` only when the connection succeeds
+and the table is absent.
+
+`PostgisUtil.CreateSpatialIndex` creates a GIST index through OGR. The geometry
+column defaults to `wkb_geometry`, the name GDAL uses when creating tables, and
+passing `null` detects the actual column from `geometry_columns`; the DDL uses
+`CREATE INDEX IF NOT EXISTS`, so repeated calls do not fail. The database user
+must have permission to create indexes, and table/geometry column names are
+restricted to letters, digits, and underscores. Writes do not replace an
+existing table of the same name by default; pass `overwrite = true` in options
+(equivalent to the `OVERWRITE=YES` layer creation option) when replacement is
+intended. File-based drivers accept the same option.
 
 #### Coordinate Transformation
 
@@ -171,6 +188,11 @@ using OpenGIS.Utils.Engine.Util;
 string wkt = "POINT (116.404 39.915)";
 string transformed = CrsUtil.Transform(wkt, 4326, 4490);
 
+// CRS type detection is resolved by GDAL/PROJ rather than a local WKID list.
+bool isProjected = CrsUtil.IsProjectedCRS(2326); // Hong Kong 1980 Grid
+bool isGeographic = CrsUtil.IsGeographicCRS(4326); // WGS 84
+var crsInfo = CrsUtil.GetCrsInfo(3826); // Taiwan TWD97 / TM2 zone 121
+
 // Get zone number from longitude
 int zone = CrsUtil.GetDh(116.404);  // 3-degree zone
 int zone6 = CrsUtil.GetDh6(116.404); // 6-degree zone
@@ -178,6 +200,28 @@ int zone6 = CrsUtil.GetDh6(116.404); // 6-degree zone
 // Get projected coordinate system WKID
 int wkid = CrsUtil.GetProjectedWkid(39);  // CGCS2000 3-degree zone 39
 ```
+
+`CrsUtil.Transform` uses the default transformation pipeline selected by
+GDAL/PROJ. When a source and target datum have a known business-safe
+intermediate path, make that path explicit. In particular, the tested
+HK1980 Grid to CGCS2000 path should go through WGS 84 to avoid the
+low-accuracy direct pipeline in affected PROJ environments:
+
+```csharp
+string cgcs2000 = CrsUtil.TransformThrough(
+    wkt,
+    2326, // HK1980 Grid
+    4326, // WGS 84 intermediate
+    4490  // CGCS2000
+);
+
+var recommendation = CrsUtil.GetTransformRecommendation(2326, 4490);
+```
+
+`GetDh`, `GetDh6`, `GetDhFromWkid`, `GetProjectedWkid`, and
+`GetProjectedWkid6` are retained as compatibility helpers for China's
+3-degree and 6-degree zoning rules. They are not general-purpose methods
+for inferring zones from international CRS identifiers.
 
 The `CrsUtil.Transform` geometry overload returns the input OGR geometry when
 the source and target WKIDs are equal; otherwise it returns a new geometry.
@@ -378,7 +422,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 - 🎯 **统一图层模型**：简洁一致的 `OguLayer`、`OguFeature`、`OguField` 抽象，屏蔽底层 GIS 库差异
 - 🔄 **格式转换**：Shapefile、GeoJSON、FileGDB、PostGIS、GeoPackage、KML、DXF、TXT 等格式无缝转换
-- 🌐 **坐标系支持**：基于 GDAL/OGR 的全面坐标系转换，内置 CGCS2000 支持
+- 🌐 **坐标系支持**：基于 GDAL/PROJ 数据库识别全球 EPSG 坐标系并执行转换，同时保留 CGCS2000 专用辅助方法
 - 📐 **几何处理**：丰富的空间操作，包括缓冲区、交集、并集、拓扑验证等
 - 🔧 **GDAL 架构**：所有操作均由 GDAL/OGR 提供支持，确保最大兼容性和性能
 - 📦 **跨平台**：通过 .NET Standard 2.0 支持 Windows、Linux 和 macOS
@@ -510,6 +554,11 @@ using OpenGIS.Utils.Engine.Util;
 string wkt = "POINT (116.404 39.915)";
 string transformed = CrsUtil.Transform(wkt, 4326, 4490);
 
+// CRS 类型和元数据由 GDAL/PROJ 动态识别，覆盖港澳台及国外 EPSG 坐标系
+bool isProjected = CrsUtil.IsProjectedCRS(2326); // 香港 HK1980 Grid
+bool isGeographic = CrsUtil.IsGeographicCRS(4326); // WGS 84
+var crsInfo = CrsUtil.GetCrsInfo(3826); // 台湾 TWD97 / TM2 zone 121
+
 // 根据经度获取带号
 int zone = CrsUtil.GetDh(116.404);  // 3度带
 int zone6 = CrsUtil.GetDh6(116.404); // 6度带
@@ -517,6 +566,18 @@ int zone6 = CrsUtil.GetDh6(116.404); // 6度带
 // 获取投影坐标系 WKID
 int wkid = CrsUtil.GetProjectedWkid(39);  // CGCS2000 3度带第39带
 ```
+
+`CrsUtil.Transform` 使用 GDAL/PROJ 选择的默认转换管道。对于已知存在业务风险的路径，
+应显式指定中间坐标系。香港 HK1980 Grid（EPSG:2326）迁移到 CGCS2000（EPSG:4490）时，
+请经 WGS 84（EPSG:4326）中转，以避免部分 PROJ 环境选择低精度直转管道：
+
+```csharp
+string cgcs2000 = CrsUtil.TransformThrough(wkt, 2326, 4326, 4490);
+var recommendation = CrsUtil.GetTransformRecommendation(2326, 4490);
+```
+
+`GetDh`、`GetDh6`、`GetDhFromWkid`、`GetProjectedWkid` 和 `GetProjectedWkid6` 仍保留用于
+中国 3 度带和 6 度带规则，不用于从国际坐标系标识推断通用分带。
 
 当源和目标 WKID 相同时，`CrsUtil.Transform` 的 Geometry 重载返回传入的 OGR 几何对象；发生转换时返回新的几何对象。调用方负责释放返回的原生几何对象。无效 WKID 抛出 `ArgumentException`，转换失败抛出文档中说明的运行时异常。
 

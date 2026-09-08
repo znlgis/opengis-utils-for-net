@@ -15,12 +15,18 @@ internal static class Program
         var outputDir = args.Length > 1 && !string.IsNullOrWhiteSpace(args[1])
             ? args[1]
             : Path.Combine(Path.GetTempPath(), "OguRealDataReport");
+        // PostGIS 连接串只从第三个参数或环境变量传入，harness 不内置任何连接凭据
+        var postgisConn = args.Length > 2 && !string.IsNullOrWhiteSpace(args[2])
+            ? args[2]
+            : Environment.GetEnvironmentVariable("OGU_POSTGIS_CONN");
 
         if (string.IsNullOrWhiteSpace(dataDir))
         {
-            Console.WriteLine("用法: OguRealDataHarness <数据目录> [报告输出目录]");
+            Console.WriteLine("用法: OguRealDataHarness <数据目录> [报告输出目录] [PostGIS连接串]");
             Console.WriteLine("或设置环境变量 OGU_REAL_DATA_DIR 指向包含 Shapefile 的目录。");
-            Console.WriteLine("将递归发现目录下所有成对的 .shp/.dbf 并执行六维度集成检查。");
+            Console.WriteLine("连接串须为无引号形式: PG:host=... port=... dbname=... user=... password=...");
+            Console.WriteLine("也可用环境变量 OGU_POSTGIS_CONN 提供；缺省时跳过第七维度 PostGIS 检查。");
+            Console.WriteLine("将递归发现目录下所有成对的 .shp/.dbf 并执行七维度集成检查。");
             return 2;
         }
 
@@ -33,6 +39,10 @@ internal static class Program
 
         Console.WriteLine($"数据目录: {dataDir}");
         Console.WriteLine($"GDAL 版本: {OpenGIS.Utils.Configuration.GdalConfiguration.GetGdalVersion()}");
+        Console.WriteLine($"PostGIS: {(string.IsNullOrWhiteSpace(postgisConn) ? "未提供，跳过第七维度" : MaskConnectionString(postgisConn))}");
+        var postgisError = string.IsNullOrWhiteSpace(postgisConn) ? null : RealDataChecks.ValidatePostgis(postgisConn);
+        if (postgisError != null)
+            Console.WriteLine($"[PostGIS 不可用] {postgisError}");
         Console.WriteLine("发现的图层:");
         foreach (var spec in RealDataChecks.DiscoverLayers(dataDir))
             Console.WriteLine($"  - {spec}");
@@ -42,7 +52,7 @@ internal static class Program
         List<CheckResult> results;
         try
         {
-            results = RealDataChecks.RunAll(dataDir, workDir);
+            results = RealDataChecks.RunAll(dataDir, workDir, postgisConn);
         }
         catch (System.Exception ex)
         {
@@ -71,7 +81,7 @@ internal static class Program
             }),
             new UTF8Encoding(false));
 
-        var md = BuildMarkdown(results, dataDir, workDir, pass, warn, fail, info);
+        var md = BuildMarkdown(results, dataDir, workDir, pass, warn, fail, info, postgisConn);
         File.WriteAllText(Path.Combine(outputDir, "realdata-check-report.md"), md, new UTF8Encoding(false));
         Console.WriteLine();
         Console.WriteLine($"报告已输出: {Path.Combine(outputDir, "realdata-check-report.md")}");
@@ -88,14 +98,25 @@ internal static class Program
         return fail == 0 ? 0 : 1;
     }
 
+    /// <summary>
+    ///     连接串中的口令不得进入报告文件，输出前一律掩码
+    /// </summary>
+    private static string MaskConnectionString(string connectionString)
+    {
+        return System.Text.RegularExpressions.Regex.Replace(
+            connectionString, @"(password\s*=\s*)\S+", "$1***",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+    }
+
     private static string BuildMarkdown(List<CheckResult> results, string dataDir, string workDir,
-        int pass, int warn, int fail, int info)
+        int pass, int warn, int fail, int info, string? postgisConn)
     {
         var sb = new StringBuilder();
         sb.AppendLine("# OpenGIS Utils for .NET 真实数据集成测试报告");
         sb.AppendLine();
         sb.AppendLine($"- 数据目录: `{dataDir}`");
         sb.AppendLine($"- GDAL 版本: {OpenGIS.Utils.Configuration.GdalConfiguration.GetGdalVersion()}");
+        sb.AppendLine($"- PostGIS: `{(string.IsNullOrWhiteSpace(postgisConn) ? "未提供（第七维度跳过）" : MaskConnectionString(postgisConn))}`");
         sb.AppendLine($"- 执行时间: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         sb.AppendLine($"- 结果汇总: **Pass {pass} / Warn {warn} / Fail {fail} / Info {info}**（共 {results.Count} 项）");
         sb.AppendLine();
@@ -105,6 +126,16 @@ internal static class Program
         sb.AppendLine("|---|---|---|");
         foreach (var spec in RealDataChecks.DiscoverLayers(dataDir))
             sb.AppendLine($"| {spec.LayerName} | {spec.SourceShapeType} | {spec.ExpectedCount} |");
+        sb.AppendLine();
+        sb.AppendLine("## 维度汇总");
+        sb.AppendLine();
+        sb.AppendLine("| 维度 | Pass | Warn | Fail | Info |");
+        sb.AppendLine("|---|---|---|---|---|");
+        foreach (var group in results.GroupBy(r => r.Dimension).OrderBy(g => g.Key))
+            sb.AppendLine($"| {group.Key} | {group.Count(r => r.Status == CheckStatus.Pass)} " +
+                          $"| {group.Count(r => r.Status == CheckStatus.Warn)} " +
+                          $"| {group.Count(r => r.Status == CheckStatus.Fail)} " +
+                          $"| {group.Count(r => r.Status == CheckStatus.Info)} |");
         sb.AppendLine();
         sb.AppendLine("## 检查明细");
         sb.AppendLine();

@@ -1,10 +1,54 @@
 using System;
+using System.Collections.Generic;
 using OpenGIS.Utils.Configuration;
 using OSGeo.OSR;
 using OgrGeometry = OSGeo.OGR.Geometry;
 using SysException = System.Exception;
 
 namespace OpenGIS.Utils.Engine.Util;
+
+/// <summary>
+///     坐标参考系统的基本元数据。
+/// </summary>
+public sealed class CrsInfo
+{
+    internal CrsInfo(int wkid, string name, string? authorityName, string? authorityCode,
+        bool isGeographic, bool isProjected, bool isGeocentric)
+    {
+        Wkid = wkid;
+        Name = name;
+        AuthorityName = authorityName;
+        AuthorityCode = authorityCode;
+        IsGeographic = isGeographic;
+        IsProjected = isProjected;
+        IsGeocentric = isGeocentric;
+    }
+
+    public int Wkid { get; }
+    public string Name { get; }
+    public string? AuthorityName { get; }
+    public string? AuthorityCode { get; }
+    public bool IsGeographic { get; }
+    public bool IsProjected { get; }
+    public bool IsGeocentric { get; }
+}
+
+/// <summary>
+///     坐标转换路径建议。
+/// </summary>
+public sealed class TransformRecommendation
+{
+    internal TransformRecommendation(bool requiresExplicitPath, string message, int[] intermediateWkids)
+    {
+        RequiresExplicitPath = requiresExplicitPath;
+        Message = message;
+        IntermediateWkids = intermediateWkids;
+    }
+
+    public bool RequiresExplicitPath { get; }
+    public string Message { get; }
+    public IReadOnlyList<int> IntermediateWkids { get; }
+}
 
 /// <summary>
 ///     坐标参考系统工具类
@@ -32,7 +76,7 @@ public static class CrsUtil
         if (string.IsNullOrWhiteSpace(wkt))
             throw new ArgumentException("WKT cannot be null or empty", nameof(wkt));
 
-        if (sourceWkid == targetWkid)
+        if (sourceWkid == targetWkid && IsValidWkid(sourceWkid))
             return wkt;
 
         // 确保 GDAL 已初始化
@@ -43,25 +87,8 @@ public static class CrsUtil
         if (geometry == null)
             throw new ArgumentException("Invalid WKT", nameof(wkt));
 
-        using var sourceSrs = new SpatialReference(null);
-        try
-        {
-            sourceSrs.ImportFromEPSG(sourceWkid);
-        }
-        catch (SysException ex)
-        {
-            throw new ArgumentException($"Invalid source WKID: {sourceWkid}", nameof(sourceWkid), ex);
-        }
-
-        using var targetSrs = new SpatialReference(null);
-        try
-        {
-            targetSrs.ImportFromEPSG(targetWkid);
-        }
-        catch (SysException ex)
-        {
-            throw new ArgumentException($"Invalid target WKID: {targetWkid}", nameof(targetWkid), ex);
-        }
+        using var sourceSrs = GetSpatialReference(sourceWkid, "sourceWkid");
+        using var targetSrs = GetSpatialReference(targetWkid, "targetWkid");
 
         using var transform = new CoordinateTransformation(sourceSrs, targetSrs);
 
@@ -100,7 +127,8 @@ public static class CrsUtil
             return geometry;
 
         // 将 Geometry 转为 WKT，进行转换，再转回来
-        geometry.ExportToWkt(out string wkt);
+        if (geometry.ExportToWkt(out string wkt) != 0 || string.IsNullOrWhiteSpace(wkt))
+            throw new SysException("Failed to export geometry to WKT");
         var transformedWkt = Transform(wkt, sourceWkid, targetWkid);
 
         var transformedGeometry = OgrGeometry.CreateFromWkt(transformedWkt);
@@ -108,6 +136,91 @@ public static class CrsUtil
             throw new SysException("Failed to create transformed geometry");
 
         return transformedGeometry;
+    }
+
+    /// <summary>
+    ///     按指定中间坐标系执行坐标转换。
+    /// </summary>
+    public static string TransformThrough(string wkt, int sourceWkid, int intermediateWkid, int targetWkid)
+    {
+        if (string.IsNullOrWhiteSpace(wkt))
+            throw new ArgumentException("WKT cannot be null or empty", nameof(wkt));
+
+        var intermediate = Transform(wkt, sourceWkid, intermediateWkid);
+        return Transform(intermediate, intermediateWkid, targetWkid);
+    }
+
+    /// <summary>
+    ///     按指定中间坐标系执行坐标转换。
+    /// </summary>
+    public static OgrGeometry TransformThrough(OgrGeometry geometry, int sourceWkid, int intermediateWkid,
+        int targetWkid)
+    {
+        if (geometry == null)
+            throw new ArgumentNullException(nameof(geometry));
+
+        if (geometry.IsEmpty())
+            throw new ArgumentException("Geometry cannot be empty", nameof(geometry));
+
+        if (sourceWkid == intermediateWkid && intermediateWkid == targetWkid)
+            return geometry;
+
+        if (geometry.ExportToWkt(out string wkt) != 0 || string.IsNullOrWhiteSpace(wkt))
+            throw new SysException("Failed to export geometry to WKT");
+        var transformedWkt = TransformThrough(wkt, sourceWkid, intermediateWkid, targetWkid);
+        var transformedGeometry = OgrGeometry.CreateFromWkt(transformedWkt);
+        if (transformedGeometry == null)
+            throw new SysException("Failed to create transformed geometry");
+
+        return transformedGeometry;
+    }
+
+    /// <summary>
+    ///     判断坐标系是否为地理坐标系。
+    /// </summary>
+    public static bool IsGeographicCRS(int wkid)
+    {
+        using var spatialReference = GetSpatialReference(wkid);
+        return spatialReference.IsGeographic() != 0;
+    }
+
+    /// <summary>
+    ///     获取坐标系元数据。坐标系定义由 GDAL/PROJ 数据库提供。
+    /// </summary>
+    public static CrsInfo GetCrsInfo(int wkid)
+    {
+        using var spatialReference = GetSpatialReference(wkid);
+        var authorityName = spatialReference.GetAuthorityName(null);
+        var authorityCode = spatialReference.GetAuthorityCode(null);
+        var name = spatialReference.GetName();
+
+        return new CrsInfo(
+            wkid,
+            string.IsNullOrWhiteSpace(name) ? $"EPSG:{wkid}" : name,
+            authorityName,
+            authorityCode,
+            spatialReference.IsGeographic() != 0,
+            spatialReference.IsProjected() != 0,
+            spatialReference.IsGeocentric() != 0);
+    }
+
+    /// <summary>
+    ///     获取已知坐标转换风险的建议路径。
+    /// </summary>
+    public static TransformRecommendation GetTransformRecommendation(int sourceWkid, int targetWkid)
+    {
+        if (sourceWkid == 2326 && targetWkid == 4490)
+        {
+            return new TransformRecommendation(
+                true,
+                "HK1980 Grid to CGCS2000 should be transformed through EPSG:4326 to avoid the low-accuracy default pipeline.",
+                new[] { 4326 });
+        }
+
+        return new TransformRecommendation(
+            false,
+            "No explicit intermediate coordinate system is currently recommended.",
+            Array.Empty<int>());
     }
 
     /// <summary>
@@ -205,9 +318,16 @@ public static class CrsUtil
     /// <remarks>地理坐标系（如 WGS84、CGCS2000）使用较小容差，投影坐标系使用默认容差</remarks>
     public static double GetTolerance(int wkid)
     {
-        // 地理坐标系使用较小容差
-        if (wkid == 4326 || wkid == 4490)
-            return 0.0000001;
+        try
+        {
+            // 地理坐标系使用角度容差；投影坐标系使用线性容差。
+            if (IsGeographicCRS(wkid))
+                return 0.0000001;
+        }
+        catch (ArgumentException)
+        {
+            // 保留旧行为：无法识别的 WKID 使用默认容差。
+        }
 
         // 投影坐标系使用默认容差
         return LibrarySettings.DefaultTolerance;
@@ -218,28 +338,43 @@ public static class CrsUtil
     /// </summary>
     /// <param name="wkid">坐标系 WKID</param>
     /// <returns>如果是投影坐标系返回 true，否则返回 false</returns>
-    /// <remarks>支持识别 CGCS2000 3/6度带、WGS84 UTM、常见地理坐标系</remarks>
+    /// <remarks>通过 GDAL/PROJ 的坐标系定义判断，不依赖特定国家或地区的 WKID 范围。</remarks>
     public static bool IsProjectedCRS(int wkid)
     {
-        // CGCS2000 3度带
-        if (wkid >= 4491 && wkid <= 4554)
-            return true;
-
-        // CGCS2000 6度带
-        if (wkid >= 4513 && wkid <= 4533)
-            return true;
-
-        // WGS84 UTM
-        if (wkid >= 32601 && wkid <= 32660) // UTM North
-            return true;
-        if (wkid >= 32701 && wkid <= 32760) // UTM South
-            return true;
-
-        // 常见地理坐标系
-        if (wkid == 4326 || wkid == 4490 || wkid == 4269)
+        try
+        {
+            using var spatialReference = GetSpatialReference(wkid);
+            return spatialReference.IsProjected() != 0;
+        }
+        catch (ArgumentException)
+        {
             return false;
+        }
+    }
 
-        // 默认假设投影坐标系
-        return wkid >= 2000;
+    private static SpatialReference GetSpatialReference(int wkid, string parameterName = "wkid")
+    {
+        GdalConfiguration.ConfigureGdal();
+
+        var spatialReference = new SpatialReference(null);
+        try
+        {
+            var result = spatialReference.ImportFromEPSG(wkid);
+            if (result != 0)
+                throw new ArgumentException($"Invalid WKID: {wkid}", parameterName);
+        }
+        catch (SysException ex)
+        {
+            spatialReference.Dispose();
+            throw new ArgumentException($"Invalid WKID: {wkid}", parameterName, ex);
+        }
+
+        return spatialReference;
+    }
+
+    private static bool IsValidWkid(int wkid)
+    {
+        using var spatialReference = GetSpatialReference(wkid);
+        return true;
     }
 }

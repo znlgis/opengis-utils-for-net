@@ -97,6 +97,12 @@ public class CrsUtilTests
         CrsUtil.GetTolerance(32650).Should().Be(LibrarySettings.DefaultTolerance);
     }
 
+    [Fact]
+    public void GetTolerance_ReturnsDefaultForUnknownWkid()
+    {
+        CrsUtil.GetTolerance(0).Should().Be(LibrarySettings.DefaultTolerance);
+    }
+
     [Theory]
     [InlineData(4491, true)]
     [InlineData(4554, true)]
@@ -115,6 +121,64 @@ public class CrsUtilTests
         CrsUtil.IsProjectedCRS(wkid).Should().Be(expected);
     }
 
+    [Theory]
+    [InlineData(4326, true)]
+    [InlineData(4490, true)]
+    [InlineData(2326, false)]
+    [InlineData(3826, false)]
+    [InlineData(3857, false)]
+    [InlineData(32650, false)]
+    public void IsGeographicCRS_UsesSpatialReferenceMetadata(int wkid, bool expected)
+    {
+        CrsUtil.IsGeographicCRS(wkid).Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData(2326)]
+    [InlineData(3826)]
+    [InlineData(3857)]
+    [InlineData(32650)]
+    public void IsProjectedCRS_RecognizesInternationalAndRegionalCrs(int wkid)
+    {
+        CrsUtil.IsProjectedCRS(wkid).Should().BeTrue();
+    }
+
+    [Fact]
+    public void GetCrsInfo_ReturnsMetadataFromSpatialReference()
+    {
+        var info = CrsUtil.GetCrsInfo(2326);
+
+        info.Wkid.Should().Be(2326);
+        info.Name.Should().NotBeNullOrWhiteSpace();
+        info.IsProjected.Should().BeTrue();
+        info.IsGeographic.Should().BeFalse();
+    }
+
+    [Fact]
+    public void TransformThrough_AppliesIntermediateCoordinateSystem()
+    {
+        const string wkt = "POINT (836694.05 819597.91)";
+
+        var expected = CrsUtil.Transform(
+            CrsUtil.Transform(wkt, 2326, 4326),
+            4326,
+            4490);
+
+        var actual = CrsUtil.TransformThrough(wkt, 2326, 4326, 4490);
+
+        actual.Should().Be(expected);
+    }
+
+    [Fact]
+    public void GetTransformRecommendation_IdentifiesHk1980ToCgcs2000Risk()
+    {
+        var recommendation = CrsUtil.GetTransformRecommendation(2326, 4490);
+
+        recommendation.RequiresExplicitPath.Should().BeTrue();
+        recommendation.IntermediateWkids.Should().ContainSingle().Which.Should().Be(4326);
+        recommendation.Message.Should().Contain("4326");
+    }
+
     [Fact]
     public void Transform_ThrowsForInvalidSourceWkid()
     {
@@ -131,6 +195,15 @@ public class CrsUtilTests
 
         act.Should().Throw<ArgumentException>()
             .WithMessage("*target*WKID*");
+    }
+
+    [Fact]
+    public void Transform_ThrowsForInvalidWkidEvenWhenSourceAndTargetMatch()
+    {
+        var act = () => CrsUtil.Transform("POINT (116 40)", 0, 0);
+
+        act.Should().Throw<ArgumentException>()
+            .WithMessage("*WKID*");
     }
 
     [Fact]
