@@ -54,7 +54,10 @@ public class RealDataPostgisTests
                          "CreateSpatialIndex(默认列名)",
                          "CreateSpatialIndex(null 自动探测)",
                          "CreateSpatialIndex(重复调用幂等)",
-                         "overwrite=true 覆盖写入"
+                         "overwrite=true 覆盖写入",
+                         // 显式保留源 FID（含 PostgreSQL 下的 0）后，FID 与读回顺序必须逐要素保真：
+                         // 曾因 Fid=0 被当作"未设置"交给序列，导致链式 UNIQUE 冲突并重排服务端行序
+                         "FID 往返保真"
                      })
                 postgis.Count(r => r.Check == check && r.Status == CheckStatus.Pass)
                     .Should().Be(layerCount, $"每个图层都应通过 {check}");

@@ -1275,6 +1275,25 @@ public static partial class RealDataChecks
             diffs.Count == 0
                 ? $"顶点 {srcStats.Vertices}、总长 {srcStats.LengthSum / 1000:F3} km、Z 点 {srcStats.ZCount} 个，全部量算指标一致"
                 : string.Join("；", diffs));
+
+        // FID 与读回顺序保真：显式保留源 FID（含 PostgreSQL 下的 0）后，读回 FID 应逐一对应源 FID。
+        // 若不一致，通常意味着写入时 FID 与序列自动分配值发生了链式 UNIQUE 冲突（旧缺陷特征），
+        // 或数据库读回顺序与写入顺序不同（无 ORDER BY 保证）。
+        var fidDiffs = new List<string>();
+        var fidCount = Math.Min(source.GetFeatureCount(), back.GetFeatureCount());
+        for (var i = 0; i < fidCount; i++)
+        {
+            var sf = source.Features[i].Fid;
+            var bf = back.Features[i].Fid;
+            if (sf != bf)
+                fidDiffs.Add($"#{i}:{sf}→{bf}");
+        }
+
+        Add(results, dim, target, "FID 往返保真",
+            fidDiffs.Count == 0 ? CheckStatus.Pass : CheckStatus.Warn,
+            fidDiffs.Count == 0
+                ? $"全部 {fidCount} 个要素 FID 与读回顺序逐一保真"
+                : $"{fidDiffs.Count} 处 FID/顺序变化：{string.Join("；", fidDiffs.Take(3))}");
     }
 
     private static void CheckSpatialIndex(List<CheckResult> results, string dim, string target,

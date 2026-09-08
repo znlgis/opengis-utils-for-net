@@ -146,6 +146,12 @@ public class GdalWriter : ILayerWriter
 
             // 写入要素
             int failedCount = 0;
+            // PostgreSQL 的序列主键列允许显式写入 0：若把源 Fid=0 当作"未设置"交给序列自动分配，
+            // 序列会先消耗一个值（分到 1），随后所有显式 FID 与已分配的序列值链式相撞 UNIQUE 约束，
+            // 触发逐要素"失败→SetFID(-1)重试"，且驱动的事务恢复会重排服务端行序
+            //（要素数据不丢失，但读回顺序与 FID 均与源不一致）。GPKG 等驱动的 FID 0 语义
+            // 仍是"未设置"，维持旧行为。
+            var preserveZeroFid = IsPostgresqlDriver(driverName);
             foreach (var oguFeature in layer.Features)
             {
                 if (string.IsNullOrWhiteSpace(oguFeature.Wkt))
@@ -163,7 +169,7 @@ public class GdalWriter : ILayerWriter
                     // 创建要素
                     ogrFeature = new Feature(ogrLayer.GetLayerDefn());
 
-                    if (oguFeature.Fid != 0 && ogrFeature.SetFID(oguFeature.Fid) != 0)
+                    if ((oguFeature.Fid != 0 || preserveZeroFid) && ogrFeature.SetFID(oguFeature.Fid) != 0)
                         throw new SysException($"设置要素 FID 失败 (Fid={oguFeature.Fid})");
 
                     // 设置几何
@@ -186,11 +192,12 @@ public class GdalWriter : ILayerWriter
 
                     // 添加要素到图层（MaxRev 绑定在插入失败时抛异常而非返回非零）
                     var created = TryCreateFeature(ogrLayer, ogrFeature);
-                    if (!created && oguFeature.Fid != 0)
+                    if (!created && (oguFeature.Fid != 0 || preserveZeroFid))
                     {
                         // FID 冲突回退：源 Fid 为 0 的要素由驱动自动分配 FID（通常从 1 开始），
                         // 可能与显式指定的源 FID 撞 UNIQUE 约束（GPKG、OpenFileGDB 等）。
                         // 此时放弃保留源 FID，改为自动分配重试一次。
+                        // PostgreSQL 下 Fid=0 也是显式保留值，冲突时同样允许回退重试。
                         ogrFeature.SetFID(-1);
                         created = TryCreateFeature(ogrLayer, ogrFeature);
                         if (created)
@@ -272,7 +279,8 @@ public class GdalWriter : ILayerWriter
     /// <exception cref="ArgumentException">当路径为空时抛出</exception>
     /// <exception cref="DataSourceException">当数据源或图层无法打开时抛出</exception>
     /// <remarks>
-    ///     追加操作不会删除已有数据源。输入字段必须能映射到目标图层；要素的非零 FID 会尝试保留。
+    ///     追加操作不会删除已有数据源。输入字段必须能映射到目标图层；要素的非零 FID 会尝试保留
+    ///     （PostgreSQL 驱动下 0 也会显式保留，避免与序列自动分配值链式冲突）。
     ///     空几何、字段转换失败及要素写入失败会汇总后抛出 <see cref="DataSourceException"/>。
     /// </remarks>
     public void Append(OguLayer layer, string path, string? layerName = null,
@@ -307,6 +315,8 @@ public class GdalWriter : ILayerWriter
         }
 
         var failedCount = 0;
+        // 与 Write 相同的 PostgreSQL Fid=0 显式保留策略：避免序列值与显式 FID 链式相撞 UNIQUE
+        var appendPreserveZeroFid = IsPostgresqlDriver(dataSource.GetDriver().GetName());
         foreach (var oguFeature in layer.Features)
         {
             if (string.IsNullOrWhiteSpace(oguFeature.Wkt))
@@ -321,7 +331,7 @@ public class GdalWriter : ILayerWriter
             try
             {
                 ogrFeature = new Feature(layerDefinition);
-                if (oguFeature.Fid != 0 && ogrFeature.SetFID(oguFeature.Fid) != 0)
+                if ((oguFeature.Fid != 0 || appendPreserveZeroFid) && ogrFeature.SetFID(oguFeature.Fid) != 0)
                     throw new SysException($"设置要素 FID 失败 (Fid={oguFeature.Fid})");
 
                 geometry = OSGeo.OGR.Geometry.CreateFromWkt(oguFeature.Wkt);
@@ -337,7 +347,7 @@ public class GdalWriter : ILayerWriter
                 }
 
                 var appended = TryCreateFeature(ogrLayer, ogrFeature);
-                if (!appended && oguFeature.Fid != 0)
+                if (!appended && (oguFeature.Fid != 0 || appendPreserveZeroFid))
                 {
                     // FID 冲突时放弃保留源 FID，改为自动分配重试一次（与 Write 行为一致）
                     ogrFeature.SetFID(-1);
@@ -389,6 +399,9 @@ public class GdalWriter : ILayerWriter
     {
         return driverName == "DXF";
     }
+
+    private static bool IsPostgresqlDriver(string? driverName)
+        => string.Equals(driverName, "PostgreSQL", StringComparison.OrdinalIgnoreCase);
 
     private string InferDriverName(string path, Dictionary<string, object>? options)
     {
