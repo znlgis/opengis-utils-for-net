@@ -30,26 +30,31 @@ public class CrsUtilTests
     }
 
     [Theory]
-    [InlineData(4491, 24)]
-    [InlineData(4500, 33)]
-    [InlineData(4513, 46)]
-    [InlineData(4554, 87)]
-    public void GetDhFromWkid_Returns3DegreeZone(int wkid, int expected)
+    [InlineData(4491, 13)] // CGCS2000 / Gauss-Kruger zone 13（6度带）
+    [InlineData(4501, 23)] // CGCS2000 / Gauss-Kruger zone 23（6度带）
+    [InlineData(4513, 25)] // CGCS2000 / 3-degree Gauss-Kruger zone 25
+    [InlineData(4524, 36)] // CGCS2000 / 3-degree Gauss-Kruger zone 36
+    [InlineData(4533, 45)] // CGCS2000 / 3-degree Gauss-Kruger zone 45
+    public void GetDhFromWkid_ReturnsZoneNumber(int wkid, int expected)
     {
         CrsUtil.GetDhFromWkid(wkid).Should().Be(expected);
     }
 
-    [Fact]
-    public void GetDhFromWkid_ThrowsForUnknownWkid()
+    [Theory]
+    [InlineData(4326)] // 地理坐标系，无带号概念
+    [InlineData(4503)] // CGCS2000 / Gauss-Kruger CM 81E：中央经线码，不携带带号
+    [InlineData(4545)] // CGCS2000 / 3-degree Gauss-Kruger CM 108E：同上
+    public void GetDhFromWkid_ThrowsForWkidWithoutZone(int wkid)
     {
-        var act = () => CrsUtil.GetDhFromWkid(4326);
+        var act = () => CrsUtil.GetDhFromWkid(wkid);
 
         act.Should().Throw<ArgumentException>();
     }
 
     [Theory]
-    [InlineData(24, 4491)]
-    [InlineData(45, 4512)]
+    [InlineData(25, 4513)]
+    [InlineData(36, 4524)]
+    [InlineData(45, 4533)]
     public void GetProjectedWkid_Returns3DegreeWkid(int zone, int expected)
     {
         CrsUtil.GetProjectedWkid(zone).Should().Be(expected);
@@ -57,6 +62,7 @@ public class CrsUtilTests
 
     [Theory]
     [InlineData(23)]
+    [InlineData(24)] // EPSG 未收录 3度带 24 带码
     [InlineData(46)]
     public void GetProjectedWkid_ThrowsForInvalidZone(int zone)
     {
@@ -66,8 +72,8 @@ public class CrsUtilTests
     }
 
     [Theory]
-    [InlineData(13, 4513)]
-    [InlineData(23, 4523)]
+    [InlineData(13, 4491)]
+    [InlineData(23, 4501)]
     public void GetProjectedWkid6_Returns6DegreeWkid(int zone, int expected)
     {
         CrsUtil.GetProjectedWkid6(zone).Should().Be(expected);

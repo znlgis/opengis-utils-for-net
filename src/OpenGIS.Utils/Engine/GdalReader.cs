@@ -60,6 +60,8 @@ public class GdalReader : ILayerReader
             throw new ArgumentException("Path cannot be null or empty", nameof(path));
 
         // SHAPE_ENCODING 是进程级配置；调用方在锁内完成设置、打开和读取，避免不同编码的并发读取互相覆盖。
+        // 读取结束后恢复原值，避免残留的编码声明污染同进程后续读写。
+        var previousShapeEncoding = OSGeo.GDAL.Gdal.GetConfigOption("SHAPE_ENCODING", null);
         ApplyEncodingOption(options);
 
         OgrDataSource? dataSource = null;
@@ -90,6 +92,7 @@ public class GdalReader : ILayerReader
         finally
         {
             dataSource?.Dispose();
+            OSGeo.GDAL.Gdal.SetConfigOption("SHAPE_ENCODING", previousShapeEncoding);
         }
     }
 
@@ -199,8 +202,23 @@ public class GdalReader : ILayerReader
         // 读取要素
         ogrLayer.ResetReading();
 
-        Feature? ogrFeature;
-        while ((ogrFeature = ogrLayer.GetNextFeature()) != null)
+        while (true)
+        {
+            Feature? ogrFeature;
+            try
+            {
+                ogrFeature = ogrLayer.GetNextFeature();
+            }
+            catch (SysException ex) when (!string.IsNullOrWhiteSpace(attributeFilter))
+            {
+                // GPKG 等 SQL 驱动把属性过滤器编译推迟到首次 GetNextFeature，非法过滤在此统一包装，
+                // 与 SetAttributeFilter 的即时路径保持同一异常契约
+                throw new FormatParseException($"Invalid attribute filter: {attributeFilter}", ex);
+            }
+
+            if (ogrFeature == null)
+                break;
+
             using (ogrFeature)
             {
                 var sourceFid = ogrFeature.GetFID();
@@ -231,6 +249,7 @@ public class GdalReader : ILayerReader
 
                 layer.AddFeature(feature);
             }
+        }
 
         return layer;
     }

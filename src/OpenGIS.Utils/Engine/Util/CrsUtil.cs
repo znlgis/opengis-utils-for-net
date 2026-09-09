@@ -270,14 +270,17 @@ public static class CrsUtil
     /// <param name="projectedWkid">投影坐标系 WKID</param>
     /// <returns>带号</returns>
     /// <exception cref="ArgumentException">当无法从 WKID 确定带号时抛出</exception>
-    /// <remarks>支持 CGCS2000 3度带和6度带</remarks>
+    /// <remarks>
+    ///     仅支持 CGCS2000 按带号编码的投影坐标系：6度带 4491-4501（13-23 带）、3度带 4513-4533（25-45 带）。
+    ///     中央经线码（4502-4512、4534-4554）不携带带号信息，无法反推，抛出异常。
+    /// </remarks>
     public static int GetDhFromWkid(int projectedWkid)
     {
-        // CGCS2000 3度带: 4491-4554 (带号 24-45)
-        if (projectedWkid >= 4491 && projectedWkid <= 4554) return projectedWkid - 4467;
+        // CGCS2000 6度带: EPSG 4491-4501 依次对应 13-23 带
+        if (projectedWkid >= 4491 && projectedWkid <= 4501) return projectedWkid - 4478;
 
-        // CGCS2000 6度带: 4513-4533 (带号 13-23)
-        if (projectedWkid >= 4513 && projectedWkid <= 4533) return projectedWkid - 4500;
+        // CGCS2000 3度带: EPSG 4513-4533 依次对应 25-45 带
+        if (projectedWkid >= 4513 && projectedWkid <= 4533) return projectedWkid - 4488;
 
         throw new ArgumentException($"Cannot determine zone number from WKID {projectedWkid}", nameof(projectedWkid));
     }
@@ -285,13 +288,13 @@ public static class CrsUtil
     /// <summary>
     ///     根据带号获取投影坐标系 WKID（3度带）
     /// </summary>
-    /// <param name="zoneNumber">带号（24-45）</param>
+    /// <param name="zoneNumber">带号（25-45；EPSG 未收录 3度带 24 带）</param>
     /// <returns>CGCS2000 3度带投影坐标系 WKID</returns>
     /// <exception cref="ArgumentException">当带号不在有效范围时抛出</exception>
     public static int GetProjectedWkid(int zoneNumber)
     {
-        // CGCS2000 3度带
-        if (zoneNumber >= 24 && zoneNumber <= 45) return 4467 + zoneNumber;
+        // CGCS2000 3度带: EPSG 4513-4533 依次对应 25-45 带
+        if (zoneNumber >= 25 && zoneNumber <= 45) return 4488 + zoneNumber;
 
         throw new ArgumentException($"Invalid zone number {zoneNumber} for 3-degree zone", nameof(zoneNumber));
     }
@@ -304,8 +307,8 @@ public static class CrsUtil
     /// <exception cref="ArgumentException">当带号不在有效范围时抛出</exception>
     public static int GetProjectedWkid6(int zoneNumber)
     {
-        // CGCS2000 6度带
-        if (zoneNumber >= 13 && zoneNumber <= 23) return 4500 + zoneNumber;
+        // CGCS2000 6度带: EPSG 4491-4501 依次对应 13-23 带
+        if (zoneNumber >= 13 && zoneNumber <= 23) return 4478 + zoneNumber;
 
         throw new ArgumentException($"Invalid zone number {zoneNumber} for 6-degree zone", nameof(zoneNumber));
     }

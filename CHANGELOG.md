@@ -101,6 +101,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mapping, FID, and failed-feature behavior.
 - `ShpUtil.GetShapefileBounds` now documents typed failures for unreadable
   extents and the valid empty-Shapefile result.
+- `CrsUtil.GetDhFromWkid`, `GetProjectedWkid`, and `GetProjectedWkid6` now use
+  the EPSG zone-numbered CGCS2000 codes verified against the PROJ database:
+  3-degree zones 25-45 map to 4513-4533 (previously `4467+zone`, which landed
+  on central-meridian codes) and 6-degree zones 13-23 map to 4491-4501
+  (previously `4500+zone`, which landed on 3-degree codes). `GetDhFromWkid`
+  rejects central-meridian codes (4502-4512, 4534-4554) and `GetProjectedWkid`
+  rejects 3-degree zone 24 (no EPSG code) with `ArgumentException` instead of
+  returning wrong zones; the previous 6-degree branch of `GetDhFromWkid` was
+  unreachable dead code.
+- `GeometryUtil.Geojson2Geometry` and `Geojson2Wkt` parse GeoJSON strings
+  (bare geometry, `Feature`, or `FeatureCollection`; first feature's geometry)
+  through the GDAL GeoJSON driver via a temporary file, replacing the previous
+  unconditional `NotSupportedException`. Unparseable input or input without a
+  geometry raises `ArgumentException`.
 
 ### Fixed
 - `GdalWriter.InferDriverName` recognizes `PG:`-prefixed connection strings and
@@ -127,6 +141,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   field conversions are no longer silently lost or reported as untyped errors.
 - Geometry-to-WKT export results and Shapefile extent return codes are checked
   before returning data to callers.
+- `GdalReader` restores the process-wide `SHAPE_ENCODING` configuration to its
+  previous value after an encoded read instead of leaving the declared
+  encoding active, which previously corrupted subsequent Shapefile writes in
+  the same process (Chinese attributes written as `?`).
+- `GdalReader` wraps failures raised while fetching features (GPKG/SQLite
+  drivers defer attribute-filter SQL compilation to the first
+  `GetNextFeature`) in `FormatParseException`, so an invalid attribute filter
+  no longer leaks a raw `ApplicationException` on those formats.
 
 ## [1.0.0] - TBD
 

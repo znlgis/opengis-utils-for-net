@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using OpenGIS.Utils.Configuration;
 using OpenGIS.Utils.Engine.Model;
@@ -68,27 +69,52 @@ public static class GeometryUtil
     /// <summary>
     ///     GeoJSON 转 Geometry
     /// </summary>
-    /// <param name="geojson">GeoJSON 格式的几何字符串</param>
-    /// <returns>OGR 几何对象</returns>
-    /// <exception cref="ArgumentException">当 GeoJSON 为空时抛出</exception>
-    /// <exception cref="NotSupportedException">GDAL/OGR 不支持直接解析 GeoJSON 字符串，此方法总是抛出此异常</exception>
+    /// <param name="geojson">GeoJSON 格式的几何字符串（支持裸几何 / Feature / FeatureCollection）</param>
+    /// <returns>OGR 几何对象，调用方负责 Dispose</returns>
+    /// <exception cref="ArgumentException">当 GeoJSON 为空、无法解析或其中不含几何对象时抛出</exception>
     /// <remarks>
-    ///     GDAL/OGR doesn't support direct GeoJSON string parsing.
-    ///     This is a breaking change from the NetTopologySuite implementation.
-    ///     Users should either use WKT format or load GeoJSON from files.
+    ///     OGR 绑定未暴露 Geometry.CreateFromJson，内部经由临时文件走 GDAL GeoJSON 驱动解析；
+    ///     FeatureCollection 取第一个要素的几何对象。
     /// </remarks>
     public static OgrGeometry Geojson2Geometry(string geojson)
     {
         if (string.IsNullOrWhiteSpace(geojson))
             throw new ArgumentException("GeoJSON cannot be null or empty", nameof(geojson));
 
-        // GDAL/OGR doesn't support direct GeoJSON string parsing
-        // Users should either:
-        // 1. Use WKT format with Wkt2Geometry()
-        // 2. Load GeoJSON from file using GdalReader
-        throw new NotSupportedException(
-            "Direct GeoJSON string parsing is not supported by GDAL/OGR. " +
-            "Please use Wkt2Geometry() for WKT format, or load GeoJSON from a file using GdalReader.");
+        var tempPath = Path.Combine(Path.GetTempPath(), $"ogu_geojson_{Guid.NewGuid():N}.geojson");
+        try
+        {
+            // File.WriteAllText 默认 UTF-8 无 BOM，GDAL GeoJSON 驱动可直接解析
+            File.WriteAllText(tempPath, geojson);
+
+            using var dataSource = Ogr.Open(tempPath, 0);
+            if (dataSource == null || dataSource.GetLayerCount() == 0)
+                throw new ArgumentException("Invalid GeoJSON format", nameof(geojson));
+
+            using var feature = dataSource.GetLayerByIndex(0)?.GetNextFeature();
+            var sourceGeometry = feature?.GetGeometryRef();
+            if (sourceGeometry == null ||
+                sourceGeometry.ExportToWkt(out var wkt) != 0 ||
+                string.IsNullOrWhiteSpace(wkt))
+                throw new ArgumentException("Invalid GeoJSON format: no geometry found", nameof(geojson));
+
+            var geom = OgrGeometry.CreateFromWkt(wkt);
+            if (geom == null)
+                throw new ArgumentException("Invalid GeoJSON format", nameof(geojson));
+
+            return geom;
+        }
+        finally
+        {
+            try
+            {
+                File.Delete(tempPath);
+            }
+            catch (IOException)
+            {
+                // Windows 上 GDAL 偶发延迟释放文件句柄；残留的临时文件由系统临时目录清理，不影响返回值
+            }
+        }
     }
 
     /// <summary>
@@ -122,10 +148,10 @@ public static class GeometryUtil
     /// </summary>
     /// <param name="geojson">GeoJSON 格式的几何字符串</param>
     /// <returns>WKT 格式的几何字符串</returns>
-    /// <exception cref="NotSupportedException">GDAL/OGR 不支持直接解析 GeoJSON 字符串</exception>
+    /// <exception cref="ArgumentException">当 GeoJSON 为空、无法解析或其中不含几何对象时抛出</exception>
     public static string Geojson2Wkt(string geojson)
     {
-        var geom = Geojson2Geometry(geojson);
+        using var geom = Geojson2Geometry(geojson);
         return Geometry2Wkt(geom);
     }
 

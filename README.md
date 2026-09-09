@@ -89,6 +89,9 @@ using OpenGIS.Utils.Geometry;
 string wkt = "POLYGON ((0 0, 10 0, 10 10, 0 10, 0 0))";
 string geojson = GeometryUtil.Wkt2Geojson(wkt);
 
+// GeoJSON string back to WKT (bare geometry, Feature, or FeatureCollection)
+string roundTripped = GeometryUtil.Geojson2Wkt(geojson);
+
 // Buffer operation
 string buffered = GeometryUtil.BufferWkt(wkt, 5.0);
 
@@ -220,8 +223,14 @@ var recommendation = CrsUtil.GetTransformRecommendation(2326, 4490);
 
 `GetDh`, `GetDh6`, `GetDhFromWkid`, `GetProjectedWkid`, and
 `GetProjectedWkid6` are retained as compatibility helpers for China's
-3-degree and 6-degree zoning rules. They are not general-purpose methods
-for inferring zones from international CRS identifiers.
+3-degree and 6-degree zoning rules. Zone numbers map to the EPSG
+zone-numbered CGCS2000 codes verified against the PROJ database: 3-degree
+zones 25-45 ↔ 4513-4533 and 6-degree zones 13-23 ↔ 4491-4501. The
+central-meridian codes (4502-4512, 4534-4554) carry no zone number, so
+`GetDhFromWkid` rejects them with `ArgumentException`; 3-degree zone 24 has
+no EPSG code and is rejected by `GetProjectedWkid`. They are not
+general-purpose methods for inferring zones from international CRS
+identifiers.
 
 The `CrsUtil.Transform` geometry overload returns the input OGR geometry when
 the source and target WKIDs are equal; otherwise it returns a new geometry.
@@ -305,8 +314,10 @@ OguLogging.LoggerFactory = LoggerFactory.Create(builder => builder.AddConsole())
 
 GDAL's `SHAPE_ENCODING` setting is process-wide. The reader serializes the
 encoding-sensitive open/read operation so concurrent reads using different
-encodings do not overwrite one another's configuration. This protects
-correctness at the cost of serializing those operations.
+encodings do not overwrite one another's configuration, and restores the
+previous value once the read completes so a declared encoding never leaks
+into later reads or writes. This protects correctness at the cost of
+serializing those operations.
 
 ### API Reference
 
@@ -514,8 +525,9 @@ if (!validationResult.IsValid)
     Console.WriteLine($"几何对象无效: {validationResult.ErrorMessage}");
 }
 
-// 注意：不支持直接解析 GeoJSON 字符串
-// 请使用 WKT 格式或通过 GdalReader 从文件加载 GeoJSON
+// GeoJSON 字符串可直接解析回几何（裸几何 / Feature / FeatureCollection，集合取第一个要素的几何）；
+// 整文件批量加载仍推荐 GdalReader / OguLayerUtil.ReadLayer(GEOJSON, path)
+string roundTripped = GeometryUtil.Geojson2Wkt(geojson);
 ```
 
 #### 数据读写
@@ -577,7 +589,10 @@ var recommendation = CrsUtil.GetTransformRecommendation(2326, 4490);
 ```
 
 `GetDh`、`GetDh6`、`GetDhFromWkid`、`GetProjectedWkid` 和 `GetProjectedWkid6` 仍保留用于
-中国 3 度带和 6 度带规则，不用于从国际坐标系标识推断通用分带。
+中国 3 度带和 6 度带规则。带号与 EPSG 码按 PROJ 数据库核实过的 CGCS2000 带号系列码互推：
+3度带 25-45 带 ↔ 4513-4533，6度带 13-23 带 ↔ 4491-4501。中央经线系列码（4502-4512、4534-4554）
+不携带带号，`GetDhFromWkid` 对其抛出 `ArgumentException`；EPSG 未收录 3度带 24 带码，
+`GetProjectedWkid(24)` 同样抛出。这些方法不用于从国际坐标系标识推断通用分带。
 
 当源和目标 WKID 相同时，`CrsUtil.Transform` 的 Geometry 重载返回传入的 OGR 几何对象；发生转换时返回新的几何对象。调用方负责释放返回的原生几何对象。无效 WKID 抛出 `ArgumentException`，转换失败抛出文档中说明的运行时异常。
 
@@ -651,7 +666,7 @@ using OpenGIS.Utils.Configuration;
 OguLogging.LoggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
 ```
 
-GDAL 的 `SHAPE_ENCODING` 是进程级配置。读取器会串行化设置编码、打开和读取数据源的过程，避免不同编码的并发读取互相覆盖；代价是这些编码敏感的读取操作不能并行执行。
+GDAL 的 `SHAPE_ENCODING` 是进程级配置。读取器会串行化设置编码、打开和读取数据源的过程，避免不同编码的并发读取互相覆盖；读取结束后自动恢复之前的配置值，声明过的编码不会泄漏并污染同进程后续的读写。代价是这些编码敏感的读取操作不能并行执行。
 
 ### API 参考
 

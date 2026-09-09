@@ -107,6 +107,25 @@ public class GdalReaderTests : IDisposable
     }
 
     [Fact]
+    public void Read_ThrowsFormatParseExceptionWhenGpkgAttributeFilterIsInvalid()
+    {
+        // GPKG(SQLite) 把过滤器编译推迟到首次 GetNextFeature，非法过滤同样要包装成 FormatParseException，
+        // 不得泄漏 OGR 原生异常（回归：曾抛裸 ApplicationException）
+        var path = Path.Combine(_testDir, "deferred-filter.gpkg");
+        var layer = new OguLayer { Name = "points", GeometryType = GeometryType.POINT };
+        layer.AddField(new OguField { Name = "name", DataType = FieldDataType.STRING, Length = 50 });
+        var feature = new OguFeature { Fid = 1, Wkt = "POINT (0 0)" };
+        feature.SetValue("name", "value");
+        layer.AddFeature(feature);
+        new GdalWriter().Write(layer, path);
+
+        var act = () => new GdalReader().Read(path, attributeFilter: "NOT A SQL FILTER");
+
+        act.Should().Throw<FormatParseException>()
+            .WithMessage("*attribute filter*");
+    }
+
+    [Fact]
     public void GetLayerNames_ThrowsDataSourceExceptionWhenPathCannotBeOpened()
     {
         var path = Path.Combine(_testDir, "missing.geojson");
@@ -185,6 +204,71 @@ public class GdalReaderTests : IDisposable
         var results = await Task.WhenAll(reads);
 
         results.Should().OnlyContain(result => result.IsCorrect);
+    }
+
+    [Fact]
+    public void Read_RestoresPreviousShapeEncodingConfigOption()
+    {
+        // 声明式读取不得把 SHAPE_ENCODING 遗留在进程级，污染后续读写（回归：读后从不恢复）
+        var path = CreateEncodedShapefile("restore-encoding", Encoding.UTF8, "value");
+        OSGeo.GDAL.Gdal.SetConfigOption("SHAPE_ENCODING", "CUSTOM");
+        try
+        {
+            new GdalReader().Read(path, options: new Dictionary<string, object> { ["encoding"] = Encoding.UTF8 });
+
+            OSGeo.GDAL.Gdal.GetConfigOption("SHAPE_ENCODING", null).Should().Be("CUSTOM");
+        }
+        finally
+        {
+            OSGeo.GDAL.Gdal.SetConfigOption("SHAPE_ENCODING", null);
+        }
+    }
+
+    [Fact]
+    public void Read_ClearsShapeEncodingConfigOptionWhenPreviouslyUnset()
+    {
+        var path = CreateEncodedShapefile("clear-encoding", Encoding.UTF8, "value");
+        OSGeo.GDAL.Gdal.SetConfigOption("SHAPE_ENCODING", null);
+
+        new GdalReader().Read(path, options: new Dictionary<string, object> { ["encoding"] = Encoding.GetEncoding("GBK") });
+
+        OSGeo.GDAL.Gdal.GetConfigOption("SHAPE_ENCODING", null).Should().BeNull();
+    }
+
+    [Fact]
+    public void Write_EncodesShapefileDbfAndCpgPerEncodingOption()
+    {
+        // encoding 对 shapefile 驱动是数据集级创建选项：DBF 应按 GBK 落盘并自动生成配套 .cpg
+        // （回归：曾作为图层创建选项传入被驱动忽略，DBF 恒为 UTF-8 且 .cpg 内容与实际字节不符）
+        OSGeo.GDAL.Gdal.SetConfigOption("SHAPE_ENCODING", null);
+        var path = CreateEncodedShapefile("gbk-bytes", Encoding.GetEncoding("GBK"), "示例地块");
+
+        var dbfBytes = File.ReadAllBytes(Path.ChangeExtension(path, ".dbf"));
+        ContainsSequence(dbfBytes, Encoding.GetEncoding("GBK").GetBytes("示例地块")).Should().BeTrue();
+        File.Exists(Path.ChangeExtension(path, ".cpg")).Should().BeTrue();
+
+        // 不声明编码读取时应依据 .cpg 自动识别，读回正确中文
+        var layer = new GdalReader().Read(path);
+        layer.Features.Single().GetValue("name").Should().Be("示例地块");
+    }
+
+    private static bool ContainsSequence(byte[] haystack, byte[] needle)
+    {
+        for (var i = 0; i <= haystack.Length - needle.Length; i++)
+        {
+            var matched = true;
+            for (var j = 0; j < needle.Length; j++)
+                if (haystack[i + j] != needle[j])
+                {
+                    matched = false;
+                    break;
+                }
+
+            if (matched)
+                return true;
+        }
+
+        return false;
     }
 
     private string CreateEncodedShapefile(string name, Encoding encoding, string value)
