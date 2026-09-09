@@ -2,6 +2,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\OpenGIS.Utils\OpenGIS.Utils.csproj" />
+    <!-- 仅示例工程引用:演示 OguLogging 接入控制台日志,不进入类库依赖 -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.11" />
   </ItemGroup>
 
   <PropertyGroup>
