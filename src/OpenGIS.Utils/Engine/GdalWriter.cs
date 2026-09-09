@@ -137,12 +137,11 @@ public class GdalWriter : ILayerWriter
             }
 
             // 预计算字段索引映射，避免在要素循环内重复调用 GetFieldIndex
+            // 字段按 layer.Fields 的顺序依次创建，图层定义保留该顺序；因此按序数映射，
+            // 以规避 GDAL 清洗字段名（如 ESRI Shapefile 将超过 10 字符的名称截断）导致按名查找返回 -1、值被静默丢弃
             var fieldIndexMap = new Dictionary<string, int>(layer.Fields.Count);
-            foreach (var field in layer.Fields)
-            {
-                var index = ogrLayer.GetLayerDefn().GetFieldIndex(field.Name);
-                if (index >= 0) fieldIndexMap[field.Name] = index;
-            }
+            for (var i = 0; i < layer.Fields.Count; i++)
+                fieldIndexMap[layer.Fields[i].Name] = i;
 
             // 写入要素
             int failedCount = 0;
@@ -303,11 +302,14 @@ public class GdalWriter : ILayerWriter
 
         var layerDefinition = ogrLayer.GetLayerDefn();
         var fieldIndexMap = new Dictionary<string, int>(layer.Fields.Count);
-        foreach (var field in layer.Fields)
+        for (var i = 0; i < layer.Fields.Count; i++)
         {
+            var field = layer.Fields[i];
             var index = layerDefinition.GetFieldIndex(field.Name);
+            // GDAL 可能清洗字段名（如 ESRI Shapefile 将超过 10 字符的名称截断）导致按名查找失败，
+            // 此时按字段创建顺序回退到序数索引
             if (index < 0)
-                throw new DataSourceException($"Field '{field.Name}' not found in target layer");
+                index = i;
             fieldIndexMap[field.Name] = index;
         }
 
