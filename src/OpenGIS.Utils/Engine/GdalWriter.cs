@@ -41,7 +41,8 @@ public class GdalWriter : ILayerWriter
     /// <exception cref="DataSourceException">当驱动不可用或创建数据源失败时抛出</exception>
     /// <remarks>
     ///     如果目标数据源已存在，写入前会尝试删除并重新创建。<paramref name="options"/> 支持
-    ///     <c>driver</c> 和 <c>encoding</c> 选项。空几何、无法解析的几何、字段转换失败及要素写入失败会汇总后抛出
+    ///     <c>driver</c> 和 <c>encoding</c> 选项。空几何要素（如 Shapefile 的 NullShape 记录）
+    ///     会被跳过并记录告警；无法解析的几何、字段转换失败及要素写入失败会汇总后抛出
     ///     <see cref="DataSourceException"/>。
     /// </remarks>
     public void Write(OguLayer layer, string path, string? layerName = null, Dictionary<string, object>? options = null)
@@ -91,7 +92,13 @@ public class GdalWriter : ILayerWriter
                 throw new DataSourceException($"Failed to create data source: {path}");
 
             // 创建图层
+            // PostgreSQL 的 COPY 按列声明类型校验 WKB：多部件几何写入单部件列会被整条 COPY 拒收。
+            // 声明列类型若为单部件而实际数据含多部件，则提升为对应 MULTI 类型；要素写入时
+            // 再把单部件 WKT 包裹成 MULTI（PostGIS MULTI 列同样接受单部件几何），取并集不丢数据。
+            var isPostgresql = IsPostgresqlDriver(driverName);
             var ogrGeomType = ResolveOgrGeometryType(layer);
+            if (isPostgresql)
+                ogrGeomType = PromoteGeometryTypeForPostgresql(ogrGeomType, layer);
             var layerOptions = BuildLayerOptions(options, driverName);
             using var spatialReference = CreateSpatialReference(layer.Wkid);
             var ogrLayer = dataSource.CreateLayer(
@@ -104,59 +111,69 @@ public class GdalWriter : ILayerWriter
                 throw new DataSourceException("Failed to create layer");
 
             // 创建字段
-            foreach (var field in layer.Fields)
+            // 记录实际创建成功的字段序数：固定 schema 驱动（DXF）会跳过部分字段，
+            // 若仍按源序数映射索引，值会写进驱动内建字段的错误列（如把属性值写进 DXF 的 Layer 列）。
+            var createdFieldOrdinals = new List<int>();
+            var kmlDemoteDates = driverName is "KML" or "LIBKML";
+            for (var ordinal = 0; ordinal < layer.Fields.Count; ordinal++)
             {
-                using var fieldDefn = CreateOgrFieldDefn(field);
-                try
+                var field = layer.Fields[ordinal];
+                var created = false;
+                using (var fieldDefn = CreateOgrFieldDefn(field, kmlDemoteDates))
                 {
-                    if (ogrLayer.CreateField(fieldDefn, 1) != 0)
+                    try
                     {
-                        if (IsFixedSchemaDriver(driverName))
-                        {
-                            // DXF 等驱动使用固定 schema，不支持任意字段创建：跳过并告警
-                            Logger.LogWarning("驱动 {Driver} 不支持字段 '{Field}'，已跳过", driverName, field.Name);
-                            continue;
-                        }
+                        created = ogrLayer.CreateField(fieldDefn, 1) == 0;
+                        if (!created && !IsFixedSchemaDriver(driverName))
+                            throw new DataSourceException($"Failed to create field '{field.Name}'");
+                    }
+                    catch (SysException ex)
+                    {
+                        if (ex is DataSourceException)
+                            throw;
 
-                        throw new DataSourceException($"Failed to create field '{field.Name}'");
+                        if (!IsFixedSchemaDriver(driverName))
+                            throw new DataSourceException($"Failed to create field '{field.Name}'", ex);
                     }
                 }
-                catch (SysException ex)
+
+                if (created)
                 {
-                    if (ex is DataSourceException)
-                        throw;
-
-                    if (IsFixedSchemaDriver(driverName))
-                    {
-                        Logger.LogWarning(ex, "驱动 {Driver} 不支持字段 '{Field}'，已跳过", driverName, field.Name);
-                        continue;
-                    }
-
-                    throw new DataSourceException($"Failed to create field '{field.Name}'", ex);
+                    createdFieldOrdinals.Add(ordinal);
+                }
+                else
+                {
+                    // DXF 等驱动使用固定 schema，不支持任意字段创建：跳过并告警
+                    Logger.LogWarning("驱动 {Driver} 不支持字段 '{Field}'，已跳过", driverName, field.Name);
                 }
             }
 
-            // 预计算字段索引映射，避免在要素循环内重复调用 GetFieldIndex
-            // 字段按 layer.Fields 的顺序依次创建，图层定义保留该顺序；因此按序数映射，
-            // 以规避 GDAL 清洗字段名（如 ESRI Shapefile 将超过 10 字符的名称截断）导致按名查找返回 -1、值被静默丢弃
-            var fieldIndexMap = new Dictionary<string, int>(layer.Fields.Count);
-            for (var i = 0; i < layer.Fields.Count; i++)
-                fieldIndexMap[layer.Fields[i].Name] = i;
+            // 预计算字段索引映射，避免在要素循环内重复调用 GetFieldIndex。
+            // 只有创建成功的字段才会进入映射，且索引等于其在图层定义中的实际位置（创建顺序）。
+            // 按序数对应实际位置可同时规避 GDAL 清洗字段名（如 ESRI Shapefile 将超过 10 字符的名称
+            // 截断）导致按名查找返回 -1、值被静默丢弃的问题。
+            var fieldIndexMap = new Dictionary<string, int>(createdFieldOrdinals.Count);
+            for (var i = 0; i < createdFieldOrdinals.Count; i++)
+                fieldIndexMap[layer.Fields[createdFieldOrdinals[i]].Name] = i;
 
             // 写入要素
             int failedCount = 0;
+            int skippedNoGeometry = 0;
             // PostgreSQL 的序列主键列允许显式写入 0：若把源 Fid=0 当作"未设置"交给序列自动分配，
             // 序列会先消耗一个值（分到 1），随后所有显式 FID 与已分配的序列值链式相撞 UNIQUE 约束，
             // 触发逐要素"失败→SetFID(-1)重试"，且驱动的事务恢复会重排服务端行序
             //（要素数据不丢失，但读回顺序与 FID 均与源不一致）。GPKG 等驱动的 FID 0 语义
             // 仍是"未设置"，维持旧行为。
-            var preserveZeroFid = IsPostgresqlDriver(driverName);
+            var preserveZeroFid = isPostgresql;
+            var promoteToMulti = isPostgresql;
+
             foreach (var oguFeature in layer.Features)
             {
                 if (string.IsNullOrWhiteSpace(oguFeature.Wkt))
                 {
-                    failedCount++;
-                    Logger.LogWarning("跳过空几何要素 (Fid={Fid})", oguFeature.Fid);
+                    // 空几何要素（如 Shapefile 的 NullShape 记录）无法经由 WKT 管线表达，
+                    // 跳过并汇总计数即可；不应让它把本可成功的整层写入判为失败。
+                    skippedNoGeometry++;
                     continue;
                 }
 
@@ -172,7 +189,11 @@ public class GdalWriter : ILayerWriter
                         throw new SysException($"设置要素 FID 失败 (Fid={oguFeature.Fid})");
 
                     // 设置几何
-                    geometry = OSGeo.OGR.Geometry.CreateFromWkt(oguFeature.Wkt);
+                    var wkt = oguFeature.Wkt!;
+                    if (promoteToMulti && IsMultiGeometryType(ogrGeomType) &&
+                        !wkt.TrimStart().StartsWith("MULTI", StringComparison.OrdinalIgnoreCase))
+                        wkt = WrapWktToMulti(wkt) ?? wkt;
+                    geometry = OSGeo.OGR.Geometry.CreateFromWkt(wkt);
                     if (geometry == null)
                         throw new SysException($"无法解析要素几何 (Fid={oguFeature.Fid})");
 
@@ -185,7 +206,23 @@ public class GdalWriter : ILayerWriter
                         if (fieldIndexMap.TryGetValue(field.Name, out var fieldIndex))
                         {
                             var value = oguFeature.GetValue(field.Name);
-                            SetFieldValue(ogrFeature, fieldIndex, value, field.DataType, field.Name);
+                            if (kmlDemoteDates && field.DataType is FieldDataType.DATE or FieldDataType.DATETIME)
+                            {
+                                // 日期列已被降级为文本列（见 CreateOgrFieldDefn），按 ISO 格式写入
+                                var text = value switch
+                                {
+                                    null => null,
+                                    DateTime d when field.DataType == FieldDataType.DATE =>
+                                        d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                                    DateTime d => d.ToString("yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture),
+                                    _ => value.ToString()
+                                };
+                                SetFieldValue(ogrFeature, fieldIndex, text, FieldDataType.STRING, field.Name);
+                            }
+                            else
+                            {
+                                SetFieldValue(ogrFeature, fieldIndex, value, field.DataType, field.Name);
+                            }
                         }
                     }
 
@@ -224,6 +261,8 @@ public class GdalWriter : ILayerWriter
             // 同步到磁盘
             dataSource.SyncToDisk();
 
+            if (skippedNoGeometry > 0)
+                Logger.LogWarning("共跳过 {Count} 个空几何要素: {Path}", skippedNoGeometry, path);
             if (failedCount > 0)
                 throw new DataSourceException($"写入图层时 {failedCount} 个要素失败: {path}");
         }
@@ -277,7 +316,8 @@ public class GdalWriter : ILayerWriter
     /// <remarks>
     ///     追加操作不会删除已有数据源。输入字段必须能映射到目标图层；要素的非零 FID 会尝试保留
     ///     （PostgreSQL 驱动下 0 也会显式保留，避免与序列自动分配值链式冲突）。
-    ///     空几何、字段转换失败及要素写入失败会汇总后抛出 <see cref="DataSourceException"/>。
+    ///     空几何要素会被跳过并记录告警；字段转换失败及要素写入失败会汇总后抛出
+    ///     <see cref="DataSourceException"/>。
     /// </remarks>
     public void Append(OguLayer layer, string path, string? layerName = null,
         Dictionary<string, object>? options = null)
@@ -314,14 +354,15 @@ public class GdalWriter : ILayerWriter
         }
 
         var failedCount = 0;
+        var skippedNoGeometry = 0;
         // 与 Write 相同的 PostgreSQL Fid=0 显式保留策略：避免序列值与显式 FID 链式相撞 UNIQUE
         var appendPreserveZeroFid = IsPostgresqlDriver(dataSource.GetDriver().GetName());
         foreach (var oguFeature in layer.Features)
         {
             if (string.IsNullOrWhiteSpace(oguFeature.Wkt))
             {
-                failedCount++;
-                Logger.LogWarning("跳过空几何要素 (Fid={Fid})", oguFeature.Fid);
+                // 与 Write 一致：空几何要素跳过并汇总，不判为失败
+                skippedNoGeometry++;
                 continue;
             }
 
@@ -374,6 +415,8 @@ public class GdalWriter : ILayerWriter
         }
 
         dataSource.SyncToDisk();
+        if (skippedNoGeometry > 0)
+            Logger.LogWarning("共跳过 {Count} 个空几何要素: {Path}", skippedNoGeometry, path);
         if (failedCount > 0)
             throw new DataSourceException($"追加到图层时 {failedCount} 个要素失败: {path}");
     }
@@ -427,10 +470,20 @@ public class GdalWriter : ILayerWriter
         };
     }
 
-    private FieldDefn CreateOgrFieldDefn(OguField field)
+    private FieldDefn CreateOgrFieldDefn(OguField field, bool kmlDemoteDates = false)
     {
         var ogrType = OgrTypeMapper.MapToOgrFieldType(field.DataType);
+
+        // KML 规范无日期类型：OFTDate 字段会让原生 KML 写驱动对所有要素 CreateFeature
+        // 失败（"Export of geometry to KML failed"）。把日期降级为文本列，内容以 ISO 串保留。
+        if (kmlDemoteDates && field.DataType is FieldDataType.DATE or FieldDataType.DATETIME)
+            ogrType = FieldType.OFTString;
+
         var fieldDefn = new FieldDefn(field.Name, ogrType);
+
+        // 文本化后的日期列不再携带宽度/精度
+        if (field.DataType is FieldDataType.DATE or FieldDataType.DATETIME && kmlDemoteDates)
+            return fieldDefn;
 
         if (field.Length.HasValue && field.Length.Value > 0) fieldDefn.SetWidth(field.Length.Value);
 
@@ -452,6 +505,92 @@ public class GdalWriter : ILayerWriter
         }
 
         return spatialReference;
+    }
+
+    /// <summary>
+    ///     PostgreSQL 列类型为单部件而实际要素几何为多部件时，把建表类型提升为对应的 MULTI 类型
+    ///     （保持要素实际的 Z/M 维度）。扫描全部要素而非仅第一个，避免首要素恰好单部件造成漏判。
+    /// </summary>
+    private static wkbGeometryType PromoteGeometryTypeForPostgresql(wkbGeometryType mapped, OguLayer layer)
+    {
+        var flatMapped = OgrTypeMapper.FlattenWkbType((int)mapped);
+        if (flatMapped is not (wkbGeometryType.wkbPoint or wkbGeometryType.wkbLineString or wkbGeometryType.wkbPolygon))
+            return mapped;
+
+        foreach (var feature in layer.Features)
+        {
+            if (string.IsNullOrWhiteSpace(feature.Wkt))
+                continue;
+
+            OSGeo.OGR.Geometry? geometry = null;
+            try
+            {
+                geometry = OSGeo.OGR.Geometry.CreateFromWkt(feature.Wkt);
+                if (geometry == null)
+                    continue;
+                if (IsMultiVariantOf(geometry.GetGeometryType(), flatMapped))
+                    return geometry.GetGeometryType();
+            }
+            catch (SysException)
+            {
+                // 无法解析的几何由要素写入阶段统一报错
+            }
+            finally
+            {
+                geometry?.Dispose();
+            }
+        }
+
+        return mapped;
+    }
+
+    /// <summary>
+    ///     判断 multi 展平后是否为 singleBase 对应的 MULTI 变体（MultiPoint/Point 等三对）。
+    /// </summary>
+    private static bool IsMultiVariantOf(wkbGeometryType multi, wkbGeometryType singleBase)
+    {
+        var flatMulti = OgrTypeMapper.FlattenWkbType((int)multi);
+        return flatMulti switch
+        {
+            wkbGeometryType.wkbMultiPoint => singleBase == wkbGeometryType.wkbPoint,
+            wkbGeometryType.wkbMultiLineString => singleBase == wkbGeometryType.wkbLineString,
+            wkbGeometryType.wkbMultiPolygon => singleBase == wkbGeometryType.wkbPolygon,
+            _ => false
+        };
+    }
+
+    /// <summary>
+    ///     几何类型（展平 Z/M 后）是否为 MULTI 变体。
+    /// </summary>
+    private static bool IsMultiGeometryType(wkbGeometryType type)
+    {
+        var flat = OgrTypeMapper.FlattenWkbType((int)type);
+        return flat is wkbGeometryType.wkbMultiPoint or wkbGeometryType.wkbMultiLineString or wkbGeometryType.wkbMultiPolygon;
+    }
+
+    /// <summary>
+    ///     把单部件 WKT 包裹为对应 MULTI 形式："POLYGON ((..))" → "MULTIPOLYGON (((..)))"，
+    ///     "LINESTRING (..)" → "MULTILINESTRING ((..))"，"POINT (x y)" → "MULTIPOINT ((x y))"；
+    ///     保留原类型词后的 Z/M 标记。非单部件几何返回 null。
+    /// </summary>
+    private static string? WrapWktToMulti(string wkt)
+    {
+        var open = wkt.IndexOf('(');
+        if (open <= 0)
+            return null;
+
+        var prefix = wkt.Substring(0, open);
+        var body = wkt.Substring(open);
+        var upper = prefix.Trim().ToUpperInvariant();
+        var head = upper.Split(' ')[0];
+        if (head != "POINT" && head != "LINESTRING" && head != "POLYGON")
+            return null;
+
+        // 在类型词前插入 MULTI，保留 " Z "/" M " 等维度标记原位（"POINT Z (..)" → "MULTIPOINT Z ((..))"）
+        var typePos = prefix.ToUpperInvariant().IndexOf(head, StringComparison.Ordinal);
+        if (typePos < 0)
+            return null;
+        return prefix.Substring(0, typePos) + "MULTI" + prefix.Substring(typePos) + "(" + body + ")";
     }
 
     /// <summary>

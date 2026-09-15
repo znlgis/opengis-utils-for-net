@@ -1,4 +1,5 @@
 using FluentAssertions;
+using OpenGIS.Utils.DataSource;
 using OpenGIS.Utils.Engine;
 using OpenGIS.Utils.Engine.Enums;
 using OpenGIS.Utils.Engine.Model.Layer;
@@ -23,8 +24,9 @@ public class GdalWriterTests : IDisposable
     }
 
     [Fact]
-    public void Write_ThrowsWhenFeatureHasNoGeometry()
+    public void Write_SkipsFeaturesWithoutGeometry()
     {
+        // 真实数据常含 NullShape 记录：空几何要素应被跳过而非让整层写入判为失败
         var layer = new OguLayer
         {
             Name = "points",
@@ -32,6 +34,9 @@ public class GdalWriterTests : IDisposable
             Wkid = 4326
         };
         layer.AddField(new OguField { Name = "name", DataType = FieldDataType.STRING });
+        var withGeom = new OguFeature { Fid = 1, Wkt = "POINT (116.4 39.9)" };
+        withGeom.SetValue("name", "valid");
+        layer.AddFeature(withGeom);
         var feature = new OguFeature { Fid = 7 };
         feature.SetValue("name", "missing geometry");
         layer.AddFeature(feature);
@@ -39,7 +44,10 @@ public class GdalWriterTests : IDisposable
         var path = Path.Combine(_testDir, "points.geojson");
         var act = () => new GdalWriter().Write(layer, path);
 
-        act.Should().Throw<System.Exception>().WithMessage("*1 个要素失败*");
+        act.Should().NotThrow();
+        var read = OguLayerUtil.ReadLayer(DataFormatType.GEOJSON, path);
+        read.Features.Should().ContainSingle()
+            .Which.GetValue("name").Should().Be("valid");
     }
 
     [Fact]
@@ -332,6 +340,66 @@ public class GdalWriterTests : IDisposable
 
         act.Should().Throw<System.Exception>()
             .Where(e => !e.Message.Contains("shapefile datastore"));
+    }
+
+    [Fact]
+    public void Write_DxfWithAttributes_SkippedFieldsDoNotLeakIntoBuiltInColumns()
+    {
+        // DXF 是固定 schema 驱动：CreateField 失败被跳过的字段绝不能继续占用内建列
+        // （曾按源序数映射，把属性值写进 Layer/Color 等内建字段，实体被放到不存在的图层上）
+        var layer = new OguLayer
+        {
+            Name = "attrs",
+            GeometryType = GeometryType.POINT,
+            Wkid = 4326
+        };
+        layer.AddField(new OguField { Name = "id", DataType = FieldDataType.STRING, Length = 20 });
+        var f1 = new OguFeature { Fid = 1, Wkt = "POINT (116.4 39.9)" };
+        f1.SetValue("id", "ZZZ_NO_SUCH_CAD_LAYER");
+        layer.AddFeature(f1);
+        var f2 = new OguFeature { Fid = 2, Wkt = "POINT (121.4 31.2)" };
+        f2.SetValue("id", "ZZZ_NO_SUCH_CAD_LAYER");
+        layer.AddFeature(f2);
+
+        var path = Path.Combine(_testDir, "attrs.dxf");
+        var act = () => new GdalWriter().Write(layer, path);
+        act.Should().NotThrow();
+
+        var read = OguLayerUtil.ReadLayer(DataFormatType.DXF, path);
+        read.Features.Should().HaveCount(2);
+        // 修复后内建 Layer 列不会被源属性值污染
+        foreach (var feature in read.Features)
+        {
+            var layerValue = feature.GetValue("Layer")?.ToString();
+            layerValue.Should().NotBe("ZZZ_NO_SUCH_CAD_LAYER");
+        }
+    }
+
+    [Fact]
+    public void Write_KmlWithDateFields_SucceedsAndKeepsIsoValues()
+    {
+        // GDAL 的原生 KML 写驱动对 OFTDate 列会让每个要素 CreateFeature 失败
+        // （"Export of geometry to KML failed"）；日期降级为文本列后应整层成功且值保留。
+        var layer = new OguLayer
+        {
+            Name = "dated",
+            GeometryType = GeometryType.POINT,
+            Wkid = 4326
+        };
+        layer.AddField(new OguField { Name = "when", DataType = FieldDataType.DATE });
+        layer.AddField(new OguField { Name = "what", DataType = FieldDataType.STRING, Length = 10 });
+        var feature = new OguFeature { Fid = 1, Wkt = "POINT (116.4 39.9)" };
+        feature.SetValue("when", new DateTime(2004, 7, 15));
+        feature.SetValue("what", "tunnel");
+        layer.AddFeature(feature);
+
+        var path = Path.Combine(_testDir, "dated.kml");
+        var act = () => new GdalWriter().Write(layer, path);
+        act.Should().NotThrow();
+
+        var read = OguLayerUtil.ReadLayer(DataFormatType.KML, path);
+        read.GetFeatureCount().Should().Be(1);
+        read.Features[0].GetValue("when")?.ToString().Should().Be("2004-07-15");
     }
 
     private static OguLayer CreatePointLayer(int fid, string name, string wkt)
