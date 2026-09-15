@@ -48,12 +48,21 @@ public static class GdalConfiguration
                 // 通过 GDAL config 显式覆盖驱动路径，防止 AllRegister 扫描不兼容的系统插件
                 Gdal.SetConfigOption("GDAL_DRIVER_PATH", "");
 
-                // MaxRev.Gdal.Universal 会自动配置路径
+                // 必须在任何 GDAL/OGR 调用之前定位并设置 GDAL_DATA。
+                // GDAL 的 CPLFindFile 会按线程（TLS）缓存一次查找路径快照，若首次调用时
+                // GDAL_DATA 指向错误目录，该线程后续即使修正 GDAL_DATA 也无法恢复，
+                // 导致 DXF 等驱动报 "Failed to find template header file header.dxf"。
+                var gdalDataDir = ConfigureGdalData();
+
+                // 将正确目录显式传给 MaxRev，避免其自行猜测（其候选列表会命中不含
+                // header.dxf 的输出目录），并完成驱动注册
+                GdalBase.ConfigureGdalDrivers(gdalDataDir);
+
+                // 完成 PROJ 等剩余配置（ConfigureGdalDrivers 已注册驱动，此处不会重复注册）
                 GdalBase.ConfigureAll();
 
-                // DXF 等驱动运行时需要 GDAL 数据文件（header.dxf 等），MaxRev 包将其部署在
-                // runtimes/any/native/gdal-data，但不会自动设置 GDAL_DATA，这里显式指向
-                ConfigureGdalData();
+                // MaxRev 的 ConfigureGdalData 可能用错误目录覆盖 config option，此处重新断言
+                ApplyGdalData(gdalDataDir);
 
                 // 注册所有驱动（GDAL AllRegister 已在 ConfigureAll 中调用，此处补充 OGR 注册）
                 RegisterAllDrivers();
@@ -149,17 +158,22 @@ public static class GdalConfiguration
     }
 
     /// <summary>
-    ///     定位并设置 GDAL_DATA（仅当当前未指向有效目录时）
+    ///     定位并设置 GDAL_DATA
     /// </summary>
+    /// <returns>解析出的 gdal-data 目录；未找到时返回 null</returns>
     /// <remarks>
     ///     搜索 MaxRev.Gdal 部署的 runtimes/any/native/gdal-data 目录，
     ///     覆盖应用输出目录与 NuGet 包缓存两种布局（向上最多回溯 5 级）。
+    ///     仅当现有 GDAL_DATA 确实包含 header.dxf 时才复用，避免沿用无效目录。
     /// </remarks>
-    private static void ConfigureGdalData()
+    private static string? ConfigureGdalData()
     {
         var existing = Environment.GetEnvironmentVariable("GDAL_DATA");
-        if (!string.IsNullOrEmpty(existing) && Directory.Exists(existing))
-            return;
+        if (!string.IsNullOrEmpty(existing) && HasDxfTemplate(existing))
+        {
+            ApplyGdalData(existing);
+            return existing;
+        }
 
         var anchors = new List<string>();
         try
@@ -181,10 +195,33 @@ public static class GdalConfiguration
             if (dataDir == null)
                 continue;
 
-            Environment.SetEnvironmentVariable("GDAL_DATA", dataDir, EnvironmentVariableTarget.Process);
-            Gdal.SetConfigOption("GDAL_DATA", dataDir);
-            return;
+            ApplyGdalData(dataDir);
+            return dataDir;
         }
+
+        return null;
+    }
+
+    /// <summary>
+    ///     将 GDAL_DATA 同时写入进程环境变量与 GDAL config option，并重置查找路径缓存
+    /// </summary>
+    /// <remarks>
+    ///     FinderClean 会清除 GDAL 按线程缓存的查找路径快照，使后续 CPLFindFile
+    ///     重新读取 GDAL_DATA，从而修复配置期间被冻结的错误路径。
+    /// </remarks>
+    private static void ApplyGdalData(string? dataDir)
+    {
+        if (string.IsNullOrEmpty(dataDir))
+            return;
+
+        Environment.SetEnvironmentVariable("GDAL_DATA", dataDir, EnvironmentVariableTarget.Process);
+        Gdal.SetConfigOption("GDAL_DATA", dataDir);
+        Gdal.FinderClean();
+    }
+
+    private static bool HasDxfTemplate(string directory)
+    {
+        return Directory.Exists(directory) && File.Exists(Path.Combine(directory, "header.dxf"));
     }
 
     private static string? FindGdalDataDir(string baseDirectory)
