@@ -117,6 +117,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   geometry raises `ArgumentException`.
 
 ### Fixed
+- `GdalWriter` no longer shifts KML attribute values by two positions: the
+  field index map now accounts for driver built-in fields (the KML driver
+  pre-creates `Name`/`Description`), so each source field keeps its own value
+  instead of receiving the value of the field two positions later (e.g.
+  `featurecla` received `LABELRANK`'s value), and a source `Name`/`NAME` field
+  no longer produces a duplicate `<name>` element. `RealDataHarness` now
+  verifies KML field-value alignment so this defect class cannot pass unnoticed
+  again.
 - `GdalWriter.InferDriverName` recognizes `PG:`-prefixed connection strings and
   selects the PostgreSQL driver. Without a file extension the inference fell
   back to `ESRI Shapefile`, so
@@ -127,9 +135,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `GdalReader` returns null for OGR null fields (e.g. blank Shapefile `D`
   date fields) instead of throwing `FormatParseException` on the first empty
   date, which previously made layers with empty date fields unreadable.
-- `GdalWriter.Write`/`Append` retry once with an auto-assigned FID when an
-  explicit source FID collides with the driver-assigned FID (GPKG/OpenFileGDB
-  UNIQUE constraint), instead of dropping the feature.
+- `GdalWriter` preserves zero-based source FIDs instead of shifting them by
+  one: GPKG accepts explicit `fid=0`, so it is now written as-is (previously
+  the `Fid=0` feature was auto-assigned `fid=1` and every later explicit FID
+  chained into a UNIQUE collision — a failed-and-retried insert per feature
+  plus a global +1 FID shift). OpenFileGDB rejects `fid=0`, so those features
+  are deferred to the end of the write (auto-assigned `max+1`), avoiding the
+  same chain while keeping every other FID intact. The retry path remains for
+  genuinely duplicate source FIDs, and `RealDataHarness` now asserts GPKG
+  FID-set preservation.
+- `GdalWriter` omits width/precision for PostgreSQL `DOUBLE`/`FLOAT` columns:
+  DBF-derived widths produced `numeric(24,15)` columns that overflowed `COPY`
+  for values beyond 10^9 (e.g. population figures), failing whole-layer
+  exports; unconstrained columns now accept any magnitude.
+- `GeometryUtil.NumPoints` recurses into sub-geometries of compound shapes
+  (MULTIPOINT/MULTILINESTRING/MULTIPOLYGON/GEOMETRYCOLLECTION), whose OGR base
+  classes report zero points, so multipart geometries no longer appear empty
+  in vertex-count summaries.
 - `GdalConfiguration` now locates the MaxRev-deployed
   `runtimes/any/native/gdal-data` directory and points `GDAL_DATA` at it,
   restoring DXF write support (template `header.dxf`).

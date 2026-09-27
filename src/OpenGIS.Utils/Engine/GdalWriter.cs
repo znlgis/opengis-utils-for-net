@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using OpenGIS.Utils.Configuration;
@@ -115,11 +116,14 @@ public class GdalWriter : ILayerWriter
             // 若仍按源序数映射索引，值会写进驱动内建字段的错误列（如把属性值写进 DXF 的 Layer 列）。
             var createdFieldOrdinals = new List<int>();
             var kmlDemoteDates = driverName is "KML" or "LIBKML";
+            // 驱动可能在图层构造时预置内建字段（如 KML 的 Name/Description 占据索引 0/1），
+            // 创建字段会追加其后：映射索引需叠加创建前的基偏移，否则属性值会整体错位。
+            var baseFieldCount = ogrLayer.GetLayerDefn().GetFieldCount();
             for (var ordinal = 0; ordinal < layer.Fields.Count; ordinal++)
             {
                 var field = layer.Fields[ordinal];
                 var created = false;
-                using (var fieldDefn = CreateOgrFieldDefn(field, kmlDemoteDates))
+                using (var fieldDefn = CreateOgrFieldDefn(field, kmlDemoteDates, isPostgresql))
                 {
                     try
                     {
@@ -149,25 +153,32 @@ public class GdalWriter : ILayerWriter
             }
 
             // 预计算字段索引映射，避免在要素循环内重复调用 GetFieldIndex。
-            // 只有创建成功的字段才会进入映射，且索引等于其在图层定义中的实际位置（创建顺序）。
+            // 只有创建成功的字段才会进入映射，且索引等于其在图层定义中的实际位置
+            // （创建前的基偏移 + 创建顺序；KML 等驱动预置内建字段，基偏移不为 0）。
             // 按序数对应实际位置可同时规避 GDAL 清洗字段名（如 ESRI Shapefile 将超过 10 字符的名称
             // 截断）导致按名查找返回 -1、值被静默丢弃的问题。
             var fieldIndexMap = new Dictionary<string, int>(createdFieldOrdinals.Count);
             for (var i = 0; i < createdFieldOrdinals.Count; i++)
-                fieldIndexMap[layer.Fields[createdFieldOrdinals[i]].Name] = i;
+                fieldIndexMap[layer.Fields[createdFieldOrdinals[i]].Name] = baseFieldCount + i;
 
             // 写入要素
             int failedCount = 0;
             int skippedNoGeometry = 0;
-            // PostgreSQL 的序列主键列允许显式写入 0：若把源 Fid=0 当作"未设置"交给序列自动分配，
-            // 序列会先消耗一个值（分到 1），随后所有显式 FID 与已分配的序列值链式相撞 UNIQUE 约束，
-            // 触发逐要素"失败→SetFID(-1)重试"，且驱动的事务恢复会重排服务端行序
-            //（要素数据不丢失，但读回顺序与 FID 均与源不一致）。GPKG 等驱动的 FID 0 语义
-            // 仍是"未设置"，维持旧行为。
-            var preserveZeroFid = isPostgresql;
+            // 驱动对 FID=0 的支持差异：
+            // - PostgreSQL（序列主键）与 GPKG 均支持显式写入 0：保留源 Fid=0，避免
+            //   "跳过 Fid=0 → 驱动自动分配 1 → 与后续显式 FID 链式相撞 UNIQUE 约束"导致的
+            //   逐要素"失败→SetFID(-1)重试"与 FID 整体偏移（PostgreSQL 下还会重排行序）。
+            // - OpenFileGDB 要求正整数 FID（显式写入 0 会被驱动拒绝）：把 Fid=0 的要素延迟到
+            //   最后写入，自动分配值 = 表内 max+1，不会与任何后续显式 FID 相撞，其余要素 FID 全保真。
+            // - 顺序型驱动（SHP/GeoJSON/KML/DXF）的 FID 由写入顺序决定，维持既有跳过语义。
+            var preserveZeroFid = isPostgresql || IsGpkgDriver(driverName);
+            var deferZeroFidToEnd = IsOpenFileGdbDriver(driverName);
             var promoteToMulti = isPostgresql;
 
-            foreach (var oguFeature in layer.Features)
+            IEnumerable<OguFeature> featureSequence = deferZeroFidToEnd
+                ? layer.Features.Where(f => f.Fid != 0).Concat(layer.Features.Where(f => f.Fid == 0))
+                : layer.Features;
+            foreach (var oguFeature in featureSequence)
             {
                 if (string.IsNullOrWhiteSpace(oguFeature.Wkt))
                 {
@@ -355,9 +366,15 @@ public class GdalWriter : ILayerWriter
 
         var failedCount = 0;
         var skippedNoGeometry = 0;
-        // 与 Write 相同的 PostgreSQL Fid=0 显式保留策略：避免序列值与显式 FID 链式相撞 UNIQUE
-        var appendPreserveZeroFid = IsPostgresqlDriver(dataSource.GetDriver().GetName());
-        foreach (var oguFeature in layer.Features)
+        // 与 Write 相同的 FID=0 驱动策略：PostgreSQL/GPKG 显式保留 0；
+        // OpenFileGDB 要求正整数 FID，Fid=0 的要素延迟到最后写入（自动分配 max+1）
+        var appendDriverName = dataSource.GetDriver().GetName();
+        var appendPreserveZeroFid = IsPostgresqlDriver(appendDriverName) || IsGpkgDriver(appendDriverName);
+        var appendDeferZeroFidToEnd = IsOpenFileGdbDriver(appendDriverName);
+        IEnumerable<OguFeature> appendFeatureSequence = appendDeferZeroFidToEnd
+            ? layer.Features.Where(f => f.Fid != 0).Concat(layer.Features.Where(f => f.Fid == 0))
+            : layer.Features;
+        foreach (var oguFeature in appendFeatureSequence)
         {
             if (string.IsNullOrWhiteSpace(oguFeature.Wkt))
             {
@@ -445,6 +462,14 @@ public class GdalWriter : ILayerWriter
     private static bool IsPostgresqlDriver(string? driverName)
         => string.Equals(driverName, "PostgreSQL", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>GeoPackage 支持显式写入 FID=0，写入时保留源 Fid=0。</summary>
+    private static bool IsGpkgDriver(string? driverName)
+        => string.Equals(driverName, "GPKG", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>OpenFileGDB 要求正整数 FID（拒绝 0），Fid=0 的要素需延迟到最后写入。</summary>
+    private static bool IsOpenFileGdbDriver(string? driverName)
+        => string.Equals(driverName, "OpenFileGDB", StringComparison.OrdinalIgnoreCase);
+
     private string InferDriverName(string path, Dictionary<string, object>? options)
     {
         // 从选项中获取驱动名称
@@ -470,7 +495,8 @@ public class GdalWriter : ILayerWriter
         };
     }
 
-    private FieldDefn CreateOgrFieldDefn(OguField field, bool kmlDemoteDates = false)
+    private FieldDefn CreateOgrFieldDefn(OguField field, bool kmlDemoteDates = false,
+        bool postgresqlNumericFix = false)
     {
         var ogrType = OgrTypeMapper.MapToOgrFieldType(field.DataType);
 
@@ -485,9 +511,17 @@ public class GdalWriter : ILayerWriter
         if (field.DataType is FieldDataType.DATE or FieldDataType.DATETIME && kmlDemoteDates)
             return fieldDefn;
 
-        if (field.Length.HasValue && field.Length.Value > 0) fieldDefn.SetWidth(field.Length.Value);
+        // PostgreSQL 下 DOUBLE/FLOAT 字段不携带 DBF 派生的宽度/精度：
+        // 否则驱动会建出 numeric(24,15) 列，普通人口值（如 1366417754 > 10^9）即 COPY 溢出。
+        // 不设宽度/精度时驱动建无约束列，可容纳任意数量级（与主项目 PrepareLayerForPostgis 策略一致）。
+        var skipNumericWidthPrecision = postgresqlNumericFix &&
+            field.DataType is FieldDataType.DOUBLE or FieldDataType.FLOAT;
 
-        if (field.Precision.HasValue && field.Precision.Value > 0) fieldDefn.SetPrecision(field.Precision.Value);
+        if (!skipNumericWidthPrecision && field.Length.HasValue && field.Length.Value > 0)
+            fieldDefn.SetWidth(field.Length.Value);
+
+        if (!skipNumericWidthPrecision && field.Precision.HasValue && field.Precision.Value > 0)
+            fieldDefn.SetPrecision(field.Precision.Value);
 
         return fieldDefn;
     }

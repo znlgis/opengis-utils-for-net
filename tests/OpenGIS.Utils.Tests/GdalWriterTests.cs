@@ -278,10 +278,10 @@ public class GdalWriterTests : IDisposable
     }
 
     [Fact]
-    public void Write_RetriesWithAutoFidWhenSourceFidCollidesInGpkg()
+    public void Write_PreservesZeroBasedFidsInGpkg()
     {
-        // 回归：源 Fid=0 的要素由驱动自动分配 fid=1，与显式指定的源 Fid=1 撞 UNIQUE 约束，
-        // 此时应回退为自动分配 FID 而不是写入失败
+        // GPKG 支持显式写入 fid=0：源 Fid=0/1 的要素应原样保留，
+        // 不再触发"跳过 Fid=0 → 驱动自动分配 1 → 与显式 Fid=1 链式相撞"的回退路径
         var layer = new OguLayer
         {
             Name = "points",
@@ -290,18 +290,80 @@ public class GdalWriterTests : IDisposable
         };
         layer.AddField(new OguField { Name = "name", DataType = FieldDataType.STRING });
         var feature0 = new OguFeature { Fid = 0, Wkt = "POINT (0 0)" };
-        feature0.SetValue("name", "auto");
+        feature0.SetValue("name", "zero");
         layer.AddFeature(feature0);
         var feature1 = new OguFeature { Fid = 1, Wkt = "POINT (1 1)" };
-        feature1.SetValue("name", "explicit");
+        feature1.SetValue("name", "one");
         layer.AddFeature(feature1);
 
-        var path = Path.Combine(_testDir, "fid-collision.gpkg");
+        var path = Path.Combine(_testDir, "fid-preserve.gpkg");
         new GdalWriter().Write(layer, path);
 
         var result = new GdalReader().Read(path);
         result.Features.Should().HaveCount(2);
-        result.Features.Select(f => f.GetValue("name")).Should().ContainInOrder("auto", "explicit");
+        result.Features.Select(f => f.Fid).Should().BeEquivalentTo(new[] { 0, 1 });
+        result.Features.Single(f => f.Fid == 0).GetValue("name").Should().Be("zero");
+        result.Features.Single(f => f.Fid == 1).GetValue("name").Should().Be("one");
+    }
+
+    [Fact]
+    public void Write_RetriesWithAutoFidWhenDuplicateSourceFids()
+    {
+        // 回退机制回归：源存在重复 FID 时，后一个要素与已写入的显式 FID 撞 UNIQUE 约束，
+        // 应回退为自动分配 FID（max+1）而不是写入失败
+        var layer = new OguLayer
+        {
+            Name = "points",
+            GeometryType = GeometryType.POINT,
+            Wkid = 4326
+        };
+        layer.AddField(new OguField { Name = "name", DataType = FieldDataType.STRING });
+        var first = new OguFeature { Fid = 5, Wkt = "POINT (0 0)" };
+        first.SetValue("name", "first");
+        layer.AddFeature(first);
+        var second = new OguFeature { Fid = 5, Wkt = "POINT (1 1)" };
+        second.SetValue("name", "second");
+        layer.AddFeature(second);
+
+        var path = Path.Combine(_testDir, "fid-duplicate.gpkg");
+        new GdalWriter().Write(layer, path);
+
+        var result = new GdalReader().Read(path);
+        result.Features.Should().HaveCount(2);
+        result.Features.Select(f => f.Fid).Should().BeEquivalentTo(new[] { 5, 6 });
+    }
+
+    [Fact]
+    public void Write_DefersZeroFidToEndForOpenFileGdb()
+    {
+        // OpenFileGDB 要求正整数 FID（写入 0 会被驱动拒绝）：Fid=0 的要素延迟到最后写入
+        // （自动分配 max+1），其余要素 FID 保真，且不产生链式冲突回退
+        var layer = new OguLayer
+        {
+            Name = "points",
+            GeometryType = GeometryType.POINT,
+            Wkid = 4326
+        };
+        layer.AddField(new OguField { Name = "name", DataType = FieldDataType.STRING });
+        var zero = new OguFeature { Fid = 0, Wkt = "POINT (0 0)" };
+        zero.SetValue("name", "zero");
+        layer.AddFeature(zero);
+        var one = new OguFeature { Fid = 1, Wkt = "POINT (1 1)" };
+        one.SetValue("name", "one");
+        layer.AddFeature(one);
+        var two = new OguFeature { Fid = 2, Wkt = "POINT (2 2)" };
+        two.SetValue("name", "two");
+        layer.AddFeature(two);
+
+        var path = Path.Combine(_testDir, "fid-defer.gdb");
+        new GdalWriter().Write(layer, path);
+
+        var result = new GdalReader().Read(path);
+        result.Features.Should().HaveCount(3);
+        // Fid=1/2 保真；Fid=0 延迟写入被分配 max+1=3
+        result.Features.Single(f => f.Fid == 1).GetValue("name").Should().Be("one");
+        result.Features.Single(f => f.Fid == 2).GetValue("name").Should().Be("two");
+        result.Features.Single(f => f.Fid == 3).GetValue("name").Should().Be("zero");
     }
 
     [Fact]
@@ -400,6 +462,47 @@ public class GdalWriterTests : IDisposable
         var read = OguLayerUtil.ReadLayer(DataFormatType.KML, path);
         read.GetFeatureCount().Should().Be(1);
         read.Features[0].GetValue("when")?.ToString().Should().Be("2004-07-15");
+    }
+
+    [Fact]
+    public void Write_KmlKeepsFieldValuesAligned()
+    {
+        // KML 驱动在图层构造时预置 Name/Description 两个内建字段（索引 0/1），创建字段追加其后。
+        // 修复前按 0 起始映射索引，属性值整体错位 2 位（code 拿到 pop 的值、rank/pop 丢失），
+        // 且源 "Name" 字段与内建 Name 会各输出一个 <name>。
+        var layer = new OguLayer
+        {
+            Name = "aligned",
+            GeometryType = GeometryType.POINT,
+            Wkid = 4326
+        };
+        layer.AddField(new OguField { Name = "Name", DataType = FieldDataType.STRING });
+        layer.AddField(new OguField { Name = "code", DataType = FieldDataType.STRING, Length = 8 });
+        layer.AddField(new OguField { Name = "rank", DataType = FieldDataType.INTEGER });
+        layer.AddField(new OguField { Name = "pop", DataType = FieldDataType.LONG });
+        var feature = new OguFeature { Fid = 1, Wkt = "POINT (116.4 39.9)" };
+        feature.SetValue("Name", "Alpha");
+        feature.SetValue("code", "A-01");
+        feature.SetValue("rank", 3);
+        feature.SetValue("pop", 14645468L);
+        layer.AddFeature(feature);
+
+        var path = Path.Combine(_testDir, "aligned.kml");
+        var act = () => new GdalWriter().Write(layer, path);
+        act.Should().NotThrow();
+
+        var read = OguLayerUtil.ReadLayer(DataFormatType.KML, path);
+        read.GetFeatureCount().Should().Be(1);
+        var back = read.Features[0];
+        back.GetValue("Name")?.ToString().Should().Be("Alpha");
+        back.GetValue("code")?.ToString().Should().Be("A-01");
+        back.GetValue("rank")?.ToString().Should().Be("3");
+        back.GetValue("pop")?.ToString().Should().Be("14645468");
+
+        // 修复后 Placemark 只写一个 <name>（源 "Name" 字段；内建 Name 不再被误赋值），
+        // 加上 Folder 名共 2 处；修复前为 3 处。
+        var nameTagCount = File.ReadAllText(path).Split("<name>").Length - 1;
+        nameTagCount.Should().Be(2);
     }
 
     private static OguLayer CreatePointLayer(int fid, string name, string wkt)

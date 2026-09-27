@@ -452,7 +452,25 @@ public static class GeometryUtil
         if (geom == null)
             throw new ArgumentNullException(nameof(geom));
 
-        return geom.GetPointCount();
+        var pointCount = geom.GetPointCount();
+        if (pointCount > 0)
+            return pointCount;
+
+        // 复合几何（MULTIPOINT/MULTILINESTRING/MULTIPOLYGON/GEOMETRYCOLLECTION）在 OGR 基类上
+        // GetPointCount 返回 0，需递归遍历子几何累加顶点数，否则多部件几何会被误报为 0 个顶点。
+        var geometryCount = geom.GetGeometryCount();
+        if (geometryCount == 0)
+            return 0;
+
+        var total = 0;
+        for (var i = 0; i < geometryCount; i++)
+        {
+            var subGeometry = geom.GetGeometryRef(i);
+            if (subGeometry != null)
+                total += NumPoints(subGeometry);
+        }
+
+        return total;
     }
 
     /// <summary>

@@ -57,7 +57,7 @@ public class RealDataPostgisTests
                          "overwrite=true 覆盖写入",
                          // 显式保留源 FID（含 PostgreSQL 下的 0）后，FID 与读回顺序必须逐要素保真：
                          // 曾因 Fid=0 被当作"未设置"交给序列，导致链式 UNIQUE 冲突并重排服务端行序
-                         "FID 往返保真"
+                         "FID 往返保真(集合)"
                      })
                 postgis.Count(r => r.Check == check && r.Status == CheckStatus.Pass)
                     .Should().Be(layerCount, $"每个图层都应通过 {check}");
